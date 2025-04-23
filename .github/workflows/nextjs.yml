@@ -36,19 +36,134 @@ jobs:
         with:
           static_site_generator: next
       
+      - name: Fix TypeScript error in SetupStorage component
+        run: |
+          cat > app/admin/dashboard/setup-storage.tsx << 'EOL'
+          "use client"
+
+          import { useState } from "react"
+          import { getSupabaseBrowser } from "@/lib/supabase"
+          import { Button } from "@/components/ui/button"
+          import { Database } from 'lucide-react'
+
+          interface SetupStorageProps {
+            onClose?: () => void;
+          }
+
+          export default function SetupStorage({ onClose }: SetupStorageProps) {
+            const [loading, setLoading] = useState(false)
+            const [message, setMessage] = useState("")
+            const supabase = getSupabaseBrowser()
+
+            const setupStorage = async () => {
+              try {
+                setLoading(true)
+                setMessage("Setting up storage buckets and policies...")
+
+                // Create the buckets if they don't exist
+                const { error: bucketsError } = await supabase.rpc("create_storage_buckets")
+                if (bucketsError) {
+                  console.error("Error creating buckets:", bucketsError)
+                  setMessage(`Error creating buckets: ${bucketsError.message}`)
+                  return
+                }
+
+                // Set up storage policies
+                const { error: policiesError } = await supabase.rpc("create_storage_policies")
+                if (policiesError) {
+                  console.error("Error creating policies:", policiesError)
+                  setMessage(`Error creating policies: ${policiesError.message}`)
+                  return
+                }
+
+                // Manually update bucket settings to be public
+                const { data: buckets } = await supabase.storage.listBuckets()
+
+                for (const bucket of buckets || []) {
+                  if (bucket.name === "profile-picture" || bucket.name === "backgrounds" || bucket.name === "songs") {
+                    const { error } = await supabase.storage.updateBucket(bucket.name, {
+                      public: true,
+                    })
+
+                    if (error) {
+                      console.error(`Error updating bucket ${bucket.name}:`, error)
+                    }
+                  }
+                }
+
+                setMessage("Storage setup complete! Buckets and policies have been configured.")
+                
+                // Call onClose if provided and setup is complete
+                if (onClose) {
+                  setTimeout(() => {
+                    onClose();
+                  }, 2000);
+                }
+              } catch (error: any) {
+                console.error("Error setting up storage:", error)
+                setMessage(`Error: ${error.message}`)
+              } finally {
+                setLoading(false)
+              }
+            }
+
+            return (
+              <div className="p-4 border border-gray-700 rounded-md">
+                <div className="flex justify-between items-center mb-3">
+                  <h3 className="text-md font-semibold">Storage Setup</h3>
+                  {onClose && (
+                    <button 
+                      onClick={onClose}
+                      className="text-gray-400 hover:text-white"
+                    >
+                      &times;
+                    </button>
+                  )}
+                </div>
+                <p className="text-sm text-gray-400 mb-3">
+                  If you're having issues with uploads, run this setup to configure storage buckets and policies.
+                </p>
+                <Button onClick={setupStorage} disabled={loading} className="bg-purple-700 hover:bg-purple-600 text-white">
+                  <Database className={`h-4 w-4 mr-2 ${loading ? "animate-pulse" : ""}`} />
+                  {loading ? "Setting up..." : "Setup Storage Buckets"}
+                </Button>
+
+                {message && (
+                  <div className="mt-4 p-3 bg-gray-800 rounded text-sm">
+                    <pre className="whitespace-pre-wrap">{message}</pre>
+                  </div>
+                )}
+              </div>
+            )
+          }
+          EOL
+      
       - name: Install dependencies
         run: npm install --legacy-peer-deps
-      
-      - name: List installed packages
-        run: npm list --depth=0
       
       - name: Create .nojekyll file
         run: mkdir -p out && touch out/.nojekyll
       
+      - name: Update next.config.mjs
+        run: |
+          cat > next.config.mjs << 'EOL'
+          /** @type {import('next').NextConfig} */
+          const nextConfig = {
+            output: 'export',
+            images: {
+              unoptimized: true,
+            },
+            // This is important for GitHub Pages deployment
+            basePath: process.env.NODE_ENV === 'production' ? '/Bats' : '',
+            assetPrefix: process.env.NODE_ENV === 'production' ? '/Bats/' : '',
+          };
+
+          export default nextConfig;
+          EOL
+      
       - name: Build with Next.js
         run: npm run build
         env:
-          # Add any environment variables your build might need
           NODE_ENV: production
       
       - name: Upload artifact
