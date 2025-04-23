@@ -33,9 +33,10 @@ const initialProfiles = [
     avatar_url: null,
     background_image: null,
     description: "Welcome to Arkham's terminal. Access to Gotham's criminal database granted.",
-    twitter_url: "https://twitter.com/arkham",
-    steam_url: "https://steamcommunity.com/id/arkham",
-    twitch_url: "https://twitch.tv/arkham",
+    twitter_url: "https://twitter.com/arkxham_",
+    twitch_url: "https://bats.rip",
+    github_url: "https://github.com/arkxham",
+    steam_url: "https://steamcommunity.com/id/arkxham/",
   },
   {
     id: "f82a2a4c-82f3-4e6e-be73-743f2eb83447",
@@ -44,9 +45,10 @@ const initialProfiles = [
     avatar_url: null,
     background_image: null,
     description: "Trystin's workspace. Specialized in advanced tactical operations and intelligence gathering.",
-    twitter_url: "https://twitter.com/trystin",
-    steam_url: "https://steamcommunity.com/id/trystin",
-    twitch_url: "https://twitch.tv/trystin",
+    twitter_url: "https://twitter.com/Trystin002",
+    twitch_url: "https://twitch.tv/y0imTrystin",
+    github_url: "https://github.com/80dropz",
+    steam_url: "https://steamcommunity.com/id/trystin/",
   },
   {
     id: "18d38ba4-f85f-4763-98a2-d433b2b46344",
@@ -55,9 +57,10 @@ const initialProfiles = [
     avatar_url: null,
     background_image: null,
     description: "Scorpy's terminal. Expert in digital forensics and cybersecurity protocols.",
-    twitter_url: "https://twitter.com/scorpy",
-    steam_url: "https://steamcommunity.com/id/scorpy",
-    twitch_url: "https://twitch.tv/scorpy",
+    twitter_url: "https://twitter.com/ScorpyL2",
+    twitch_url: "https://twitch.tv/ScorpyL2",
+    github_url: "https://github.com/80dropz",
+    steam_url: "https://steamcommunity.com/id/scorpy/",
   },
   {
     id: "7306d120-20c9-4db9-8673-91402084f42e",
@@ -66,9 +69,10 @@ const initialProfiles = [
     avatar_url: null,
     background_image: null,
     description: "Gekk's system. Specializing in advanced surveillance and reconnaissance operations.",
-    twitter_url: "https://twitter.com/gekk",
-    steam_url: "https://steamcommunity.com/id/gekk",
+    twitter_url: "https://twitter.com/GEKKSKI",
     twitch_url: "https://twitch.tv/gekk",
+    github_url: "https://github.com/gekk",
+    steam_url: "https://steamcommunity.com/id/gekk-",
   },
   {
     id: "12b49464-de99-40f6-b869-a21a8cfc0d11",
@@ -77,9 +81,10 @@ const initialProfiles = [
     avatar_url: null,
     background_image: null,
     description: "Slos's workstation. Focused on strategic planning and tactical analysis.",
-    twitter_url: "https://twitter.com/slos",
-    steam_url: "https://steamcommunity.com/id/slos",
-    twitch_url: "https://twitch.tv/slos",
+    twitter_url: "https://twitter.com/slosgpx",
+    twitch_url: "https://twitch.tv/sl0s",
+    github_url: "https://github.com/80dropz",
+    steam_url: "https://steamcommunity.com/id/slosgpx/",
   },
   {
     id: "75b11267-26c3-4ae2-82bb-bd6ace06dbcd",
@@ -88,9 +93,10 @@ const initialProfiles = [
     avatar_url: null,
     background_image: null,
     description: "Said's terminal. Expert in communications and field operations coordination.",
-    twitter_url: "https://twitter.com/said",
-    steam_url: "https://steamcommunity.com/id/said",
-    twitch_url: "https://twitch.tv/said",
+    twitter_url: "https://twitter.com/_saidd1",
+    twitch_url: "https://twitch.tv/said1",
+    github_url: "https://github.com/80dropz",
+    steam_url: "https://steamcommunity.com/id/said3q/",
   },
   {
     id: "5688fe08-2150-49f5-ae25-1c35528a8fd1",
@@ -99,9 +105,10 @@ const initialProfiles = [
     avatar_url: null,
     background_image: null,
     description: "N333mo's system. Specialized in covert operations and undercover intelligence.",
-    twitter_url: "https://twitter.com/n333mo",
-    steam_url: "https://steamcommunity.com/id/n333mo",
-    twitch_url: "https://twitch.tv/n333mo",
+    twitter_url: "https://twitter.com/n333mo_",
+    twitch_url: "https://twitch.tv/n333mo_",
+    github_url: "https://github.com/n333mo",
+    steam_url: "https://steamcommunity.com/id/n333mo/",
   },
   {
     id: "481ca4c5-d885-4aee-be2d-2bcc38f9061c",
@@ -110,9 +117,10 @@ const initialProfiles = [
     avatar_url: null,
     background_image: null,
     description: "Mocha's workspace. Expert in data analysis and pattern recognition.",
-    twitter_url: "https://twitter.com/mocha",
-    steam_url: "https://steamcommunity.com/id/mocha",
-    twitch_url: "https://twitch.tv/mocha",
+    twitter_url: "https://twitter.com/MochaFNBR",
+    twitch_url: "https://twitch.tv/1m0cha",
+    github_url: "https://github.com/80dropz",
+    steam_url: "https://steamcommunity.com/id/mochafn/",
   },
   {
     id: "5ff14b37-907e-4f88-a3ec-8bd7c858f118",
@@ -121,9 +129,10 @@ const initialProfiles = [
     avatar_url: null,
     background_image: null,
     description: "Clipzy's terminal. Specialized in multimedia intelligence and audio-visual analysis.",
-    twitter_url: "https://twitter.com/clipzy",
-    steam_url: "https://steamcommunity.com/id/clipzy",
+    twitter_url: "https://twitter.com/clpzy",
     twitch_url: "https://twitch.tv/clipzy",
+    github_url: "https://github.com/clipzy",
+    steam_url: "https://steamcommunity.com/id/8cs/",
   },
   {
     id: "38a65afc-6bf4-402b-994f-b7a34130cb7d",
@@ -132,9 +141,10 @@ const initialProfiles = [
     avatar_url: null,
     background_image: null,
     description: "Jack's workstation. Expert in tactical support and field operations.",
-    twitter_url: "https://twitter.com/jack",
-    steam_url: "https://steamcommunity.com/id/jack",
-    twitch_url: "https://twitch.tv/jack",
+    twitter_url: "https://twitter.com/UpdateStable",
+    twitch_url: "https://twitch.tv/freedm_",
+    github_url: "https://github.com/jack",
+    steam_url: "https://steamcommunity.com/id/freedm_/",
   },
   {
     id: "b7b311bd-9260-45ef-afb7-fe06f7aa52ad",
@@ -143,9 +153,10 @@ const initialProfiles = [
     avatar_url: null,
     background_image: null,
     description: "Junz's system. Specialized in technical support and equipment maintenance.",
-    twitter_url: "https://twitter.com/junz",
-    steam_url: "https://steamcommunity.com/id/junz",
-    twitch_url: "https://twitch.tv/junz",
+    twitter_url: "https://twitter.com/Junzlol_",
+    twitch_url: "https://twitch.tv/junzioi",
+    github_url: "https://github.com/80dropz",
+    steam_url: "https://steamcommunity.com/profiles/76561199119147695",
   },
   {
     id: "ec7c47c8-19c6-4fe4-9448-85036cc14746",
@@ -154,9 +165,10 @@ const initialProfiles = [
     avatar_url: null,
     background_image: null,
     description: "Outlaw's terminal. Expert in unconventional tactics and off-grid operations.",
-    twitter_url: "https://twitter.com/outlaw",
-    steam_url: "https://steamcommunity.com/id/outlaw",
-    twitch_url: "https://twitch.tv/outlaw",
+    twitter_url: "https://twitter.com/akaoutlaw",
+    twitch_url: "https://twitch.tv/akaoutlaw",
+    github_url: "https://github.com/arkxham",
+    steam_url: "https://steamcommunity.com/profiles/76561199189690553",
   },
   {
     id: "4220428f-b980-4a1f-92bb-4422589f1066",
@@ -165,9 +177,10 @@ const initialProfiles = [
     avatar_url: null,
     background_image: null,
     description: "Lydell's workspace. Specialized in logistics and resource management.",
-    twitter_url: "https://twitter.com/lydell",
-    steam_url: "https://steamcommunity.com/id/lydell",
-    twitch_url: "https://twitch.tv/lydell",
+    twitter_url: "https://twitter.com/lydeli",
+    twitch_url: "https://twitch.tv/lydeli",
+    github_url: "https://github.com/80dropz",
+    steam_url: "https://steamcommunity.com/id/8inchDeli/",
   },
   {
     id: "0d69999e-11f1-41d0-b625-58445a06c63c",
@@ -177,8 +190,9 @@ const initialProfiles = [
     background_image: null,
     description: "Rtmonly's system. Expert in real-time monitoring and surveillance operations.",
     twitter_url: "https://twitter.com/rtmonly",
-    steam_url: "https://steamcommunity.com/id/rtmonly",
     twitch_url: "https://twitch.tv/rtmonly",
+    github_url: "https://github.com/rtmonly",
+    steam_url: "https://steamcommunity.com/id/rtmonly/",
   },
 ]
 
@@ -602,19 +616,6 @@ export default function DesktopPage() {
               </button>
 
               <button
-                onClick={() => handleSocialClick(selectedProfile?.steam_url)}
-                className={`flex items-center space-x-2 px-4 py-3 rounded-md transition-colors ${
-                  selectedProfile?.steam_url
-                    ? "bg-gray-600 hover:bg-gray-700 text-white"
-                    : "bg-gray-700 text-gray-400 cursor-not-allowed"
-                }`}
-                disabled={!selectedProfile?.steam_url}
-              >
-                <Steam size={20} />
-                <span>Steam</span>
-              </button>
-
-              <button
                 onClick={() => handleSocialClick(selectedProfile?.twitch_url)}
                 className={`flex items-center space-x-2 px-4 py-3 rounded-md transition-colors ${
                   selectedProfile?.twitch_url
@@ -625,6 +626,19 @@ export default function DesktopPage() {
               >
                 <Twitch size={20} />
                 <span>Twitch</span>
+              </button>
+
+              <button
+                onClick={() => handleSocialClick(selectedProfile?.steam_url)}
+                className={`flex items-center space-x-2 px-4 py-3 rounded-md transition-colors ${
+                  selectedProfile?.steam_url
+                    ? "bg-gray-600 hover:bg-gray-700 text-white"
+                    : "bg-gray-700 text-gray-400 cursor-not-allowed"
+                }`}
+                disabled={!selectedProfile?.steam_url}
+              >
+                <Steam size={20} />
+                <span>Steam</span>
               </button>
             </div>
           </div>
