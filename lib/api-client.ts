@@ -6,8 +6,19 @@ export function getApiBaseUrl() {
     NEXT_PUBLIC_VERCEL_URL: process.env.NEXT_PUBLIC_VERCEL_URL,
   })
 
-  // IMPORTANT: Never use the Supabase URL directly - it will cause CORS errors
-  // Check if the SERVERLESS_API_URL contains supabase.co and avoid using it
+  // Check if we're on the custom domain (bats.rip)
+  const isCustomDomain =
+    typeof window !== "undefined" &&
+    (window.location.hostname === "bats.rip" || window.location.hostname.includes("bats.rip"))
+
+  // If on custom domain, ALWAYS use the Vercel deployment URL for API calls
+  if (isCustomDomain) {
+    console.log("On bats.rip domain - using Vercel URL for API calls")
+    return "https://v0-custom-website-design-lyart.vercel.app"
+  }
+
+  // Use the NEXT_PUBLIC_SERVERLESS_API_URL environment variable if available
+  // and it's not pointing to Supabase
   if (
     process.env.NEXT_PUBLIC_SERVERLESS_API_URL &&
     !process.env.NEXT_PUBLIC_SERVERLESS_API_URL.includes("supabase.co")
@@ -20,17 +31,6 @@ export function getApiBaseUrl() {
   if (process.env.NODE_ENV === "development") {
     console.log("Using relative URL (empty string) for development")
     return ""
-  }
-
-  // Check if we're on the custom domain
-  const isCustomDomain =
-    typeof window !== "undefined" &&
-    (window.location.hostname === "bats.rip" || window.location.hostname.includes("bats.rip"))
-
-  // If on custom domain, use the Vercel deployment URL
-  if (isCustomDomain) {
-    console.log("Using hardcoded Vercel URL for custom domain")
-    return "https://v0-custom-website-design-lyart.vercel.app"
   }
 
   // Otherwise, use the current origin or the Vercel URL if available

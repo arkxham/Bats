@@ -274,20 +274,17 @@ export default function DesktopPage() {
         try {
           console.log(`Fetching files for user: ${profile.id}`)
 
-          // Try using our apiRequest helper with relative URL
-          const data = await apiRequest("/api/user-files", {
-            method: "POST",
-            body: JSON.stringify({
-              userId: profile.id,
-            }),
+          // Always use GET requests since we're on GitHub Pages which doesn't support POST
+          const data = await apiRequest(`/api/user-files?userId=${profile.id}`, {
+            method: "GET",
           }).catch(async (error) => {
-            console.log(`POST request failed for user ${profile.id}, trying GET...`)
+            console.log(`GET request failed for user ${profile.id}, trying fallback API...`)
 
-            // If POST fails, try GET
-            return await apiRequest(`/api/user-files?userId=${profile.id}`, {
+            // Try the fallback API on Vercel
+            return await apiRequest(`/api/fallback`, {
               method: "GET",
             }).catch((error) => {
-              console.log(`GET request also failed for user ${profile.id}, using fallback...`)
+              console.log(`Fallback API also failed for user ${profile.id}, using default...`)
               // Return a minimal fallback response
               return {
                 success: true,
