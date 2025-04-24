@@ -6,8 +6,12 @@ export function getApiBaseUrl() {
     NEXT_PUBLIC_VERCEL_URL: process.env.NEXT_PUBLIC_VERCEL_URL,
   })
 
-  // Use the NEXT_PUBLIC_SERVERLESS_API_URL environment variable if available
-  if (process.env.NEXT_PUBLIC_SERVERLESS_API_URL) {
+  // IMPORTANT: Never use the Supabase URL directly - it will cause CORS errors
+  // Check if the SERVERLESS_API_URL contains supabase.co and avoid using it
+  if (
+    process.env.NEXT_PUBLIC_SERVERLESS_API_URL &&
+    !process.env.NEXT_PUBLIC_SERVERLESS_API_URL.includes("supabase.co")
+  ) {
     console.log(`Using NEXT_PUBLIC_SERVERLESS_API_URL: ${process.env.NEXT_PUBLIC_SERVERLESS_API_URL}`)
     return process.env.NEXT_PUBLIC_SERVERLESS_API_URL
   }

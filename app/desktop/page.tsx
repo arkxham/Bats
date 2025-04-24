@@ -265,23 +265,38 @@ export default function DesktopPage() {
       const newProfileSongs: Record<string, string> = {}
       const newUserFiles: Record<string, UserFiles> = {}
 
+      // Set default profile images for all profiles as a fallback
+      profiles.forEach((profile) => {
+        newProfileImages[profile.id] = DEFAULT_PROFILE_PIC
+      })
+
       for (const profile of profiles) {
         try {
           console.log(`Fetching files for user: ${profile.id}`)
 
-          // Try using our apiRequest helper
-          const data = await apiRequest("api/user-files", {
+          // Try using our apiRequest helper with relative URL
+          const data = await apiRequest("/api/user-files", {
             method: "POST",
             body: JSON.stringify({
               userId: profile.id,
-              supabaseUrl: SUPABASE_URL, // Pass the Supabase URL explicitly
             }),
           }).catch(async (error) => {
             console.log(`POST request failed for user ${profile.id}, trying GET...`)
 
             // If POST fails, try GET
-            return await apiRequest(`api/user-files?userId=${profile.id}`, {
+            return await apiRequest(`/api/user-files?userId=${profile.id}`, {
               method: "GET",
+            }).catch((error) => {
+              console.log(`GET request also failed for user ${profile.id}, using fallback...`)
+              // Return a minimal fallback response
+              return {
+                success: true,
+                files: {
+                  "profile-picture": [],
+                  backgrounds: [],
+                  songs: [],
+                },
+              }
             })
           })
 
