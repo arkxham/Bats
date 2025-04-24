@@ -4,7 +4,8 @@ import { useState, useEffect, useRef } from "react"
 import { useRouter } from "next/navigation"
 import Image from "next/image"
 import { getSupabaseBrowser } from "@/lib/supabase"
-import { getApiBaseUrl } from "@/lib/api-client"
+// Add this near the top of the file, after the imports
+import { apiRequest } from "@/lib/api-client"
 import {
   Folder,
   User,
@@ -252,7 +253,7 @@ export default function DesktopPage() {
     setApiError(null)
   }
 
-  // Modify the fetchAllUserFiles function to include retries and use the hardcoded Supabase URL
+  // Replace the fetchAllUserFiles function with this improved version
   const fetchAllUserFiles = async (retryCount = 0) => {
     setRefreshing(true)
     setApiError(null)
@@ -266,77 +267,22 @@ export default function DesktopPage() {
 
       for (const profile of profiles) {
         try {
-          // Get the API base URL
-          const baseUrl = getApiBaseUrl()
-          console.log(`Using API base URL: ${baseUrl} for user ${profile.id}`)
-          console.log(`Using Supabase URL: ${SUPABASE_URL}`)
+          console.log(`Fetching files for user: ${profile.id}`)
 
-          // Try to fetch from the main API
-          let response: Response | null = null
-          let error: Error | null = null
+          // Try using our apiRequest helper
+          const data = await apiRequest("api/user-files", {
+            method: "POST",
+            body: JSON.stringify({
+              userId: profile.id,
+              supabaseUrl: SUPABASE_URL, // Pass the Supabase URL explicitly
+            }),
+          }).catch(async (error) => {
+            console.log(`POST request failed for user ${profile.id}, trying GET...`)
 
-          try {
-            response = await fetch(`${baseUrl}/api/user-files`, {
-              method: "POST",
-              headers: {
-                "Content-Type": "application/json",
-              },
-              body: JSON.stringify({
-                userId: profile.id,
-                supabaseUrl: SUPABASE_URL, // Pass the Supabase URL explicitly
-              }),
-              credentials: "include", // Include credentials in the request
-              // Add a timeout to prevent hanging requests
-              signal: AbortSignal.timeout(15000), // 15 second timeout
+            // If POST fails, try GET
+            return await apiRequest(`api/user-files?userId=${profile.id}`, {
+              method: "GET",
             })
-
-            // If we get a 405 Method Not Allowed, try with GET method
-            if (response.status === 405) {
-              console.log(`POST method not allowed for user ${profile.id}, trying GET...`)
-              response = await fetch(`${baseUrl}/api/user-files?userId=${profile.id}`, {
-                method: "GET",
-                headers: {
-                  "Content-Type": "application/json",
-                },
-                credentials: "include",
-                signal: AbortSignal.timeout(10000), // 10 second timeout
-              })
-            }
-          } catch (err: any) {
-            error = err
-            console.error(`Network error for user ${profile.id}:`, err)
-          }
-
-          // If the main API fails, try the fallback API
-          if (!response || !response.ok) {
-            console.log(`Main API failed for user ${profile.id}, trying fallback...`)
-
-            try {
-              response = await fetch(`${baseUrl}/api/fallback`, {
-                method: "POST",
-                headers: {
-                  "Content-Type": "application/json",
-                },
-                body: JSON.stringify({ userId: profile.id }),
-                signal: AbortSignal.timeout(5000), // 5 second timeout for fallback
-              })
-            } catch (fallbackErr: any) {
-              console.error(`Fallback API also failed for user ${profile.id}:`, fallbackErr)
-              // If both APIs fail, continue to the next profile
-              continue
-            }
-          }
-
-          if (!response.ok) {
-            console.error(`Error response for user ${profile.id}: ${response.status} ${response.statusText}`)
-            const errorText = await response.text().catch(() => "No error details available")
-            console.error(`Error details: ${errorText}`)
-            throw new Error(`Error fetching files: ${response.statusText}`)
-          }
-
-          const data = await response.json().catch((error) => {
-            console.error(`JSON parsing error for user ${profile.id}:`, error)
-            throw new Error("Failed to parse response as JSON")
           })
 
           if (data.success && data.files) {

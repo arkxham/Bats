@@ -3,12 +3,13 @@ import { getSupabaseServer } from "@/lib/supabase"
 
 // Add OPTIONS handler for CORS preflight requests
 export async function OPTIONS() {
+  console.log("[user-files] OPTIONS request received")
   return NextResponse.json(
     {},
     {
       headers: {
         "Access-Control-Allow-Origin": "*",
-        "Access-Control-Allow-Methods": "POST, OPTIONS",
+        "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
         "Access-Control-Allow-Headers": "Content-Type, Authorization",
       },
     },
@@ -17,11 +18,12 @@ export async function OPTIONS() {
 
 // Make sure we handle both GET and POST methods
 export async function GET(request: Request) {
-  // Redirect GET requests to POST handler
+  console.log("[user-files] GET request received")
   return handleUserFilesRequest(request)
 }
 
 export async function POST(request: Request) {
+  console.log("[user-files] POST request received")
   return handleUserFilesRequest(request)
 }
 
@@ -34,7 +36,10 @@ async function handleUserFilesRequest(request: Request) {
   }
 
   try {
-    console.log(`[user-files] Request received: ${request.method}`)
+    console.log(`[user-files] Request received: ${request.method}`, {
+      url: request.url,
+      headers: Object.fromEntries(request.headers.entries()),
+    })
 
     // Parse the userId from the request
     let userId: string
@@ -43,7 +48,7 @@ async function handleUserFilesRequest(request: Request) {
       try {
         const body = await request.json()
         userId = body.userId
-        console.log("[user-files] Request body parsed successfully:", { userId })
+        console.log("[user-files] Request body parsed successfully:", body)
       } catch (error) {
         console.error("[user-files] Error parsing request body:", error)
         return NextResponse.json(
@@ -123,10 +128,10 @@ async function handleUserFilesRequest(request: Request) {
           continue
         }
 
-        console.log(`[user-files] Found ${data.length} files in ${bucket} for user ${userId}`)
+        console.log(`[user-files] Found ${data?.length || 0} files in ${bucket} for user ${userId}`)
 
         // Get public URLs for each file
-        const files = data.map((file) => {
+        const files = (data || []).map((file) => {
           const filePath = `${userId}/${file.name}`
           const { data: urlData } = supabase.storage.from(bucket).getPublicUrl(filePath)
 

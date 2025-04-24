@@ -8,7 +8,7 @@ const inter = Inter({ subsets: ["latin"] })
 
 export const metadata: Metadata = {
   title: "The Batcave",
-  description: "tw",
+  description: "twitch.tv/team/bat",
     generator: 'v0.dev'
 }
 
