@@ -221,8 +221,6 @@ export default function DesktopPage() {
   const audioRef = useRef<HTMLAudioElement | null>(null)
   const router = useRouter()
   const supabase = getSupabaseBrowser()
-  const [descriptions, setDescriptions] = useState<Record<string, string>>({})
-  const [profileBios, setProfileBios] = useState<Record<string, string>>({})
 
   // Fetch all user files from the API
   const fetchAllUserFiles = async () => {
@@ -301,53 +299,6 @@ export default function DesktopPage() {
                       audio.play().catch((err) => console.log("Could not autoplay:", err))
                     }
                   }
-                }
-              }
-            }
-
-            // Extract bio file
-            if (data.files["descriptions"] && data.files["descriptions"].length > 0) {
-              // Find the bio file
-              const bioFile = data.files["descriptions"].find((file: any) => file.name === "bio.txt")
-
-              if (bioFile) {
-                // Download the bio file content
-                try {
-                  const bioResponse = await fetch(bioFile.publicUrl)
-                  if (bioResponse.ok) {
-                    const bioText = await bioResponse.text()
-                    // Store the bio text
-                    const newDescriptions = { ...descriptions }
-                    newDescriptions[profile.id] = bioText
-                    setDescriptions(newDescriptions)
-                  }
-                } catch (error) {
-                  console.error(`Error downloading bio for ${profile.id}:`, error)
-                }
-              }
-            }
-
-            // Extract description file
-            if (data.files["descriptions"] && data.files["descriptions"].length > 0) {
-              // Find the description file
-              const descFile = data.files["descriptions"].find((file: any) => file.name === "description.txt")
-
-              if (descFile) {
-                // Download the description file content
-                try {
-                  const descResponse = await fetch(descFile.publicUrl)
-                  if (descResponse.ok) {
-                    const descText = await descResponse.text()
-                    newUserFiles[profile.id] = {
-                      ...newUserFiles[profile.id],
-                      description: descText,
-                    }
-
-                    // Store the description text
-                    descriptions[profile.id] = descText
-                  }
-                } catch (error) {
-                  console.error(`Error downloading description for ${profile.id}:`, error)
                 }
               }
             }
@@ -647,9 +598,7 @@ export default function DesktopPage() {
             </div>
 
             {/* Description */}
-            {descriptions[selectedProfile?.id] && (
-              <p className="text-gray-300 mb-8 text-lg">{descriptions[selectedProfile?.id]}</p>
-            )}
+            <p className="text-gray-300 mb-8 text-lg">{selectedProfile?.description}</p>
 
             {/* Social Media Buttons - Centered */}
             <div className="flex justify-center space-x-4 mb-6">

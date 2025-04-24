@@ -1,7 +1,26 @@
 import { NextResponse } from "next/server"
 import { getSupabaseServer } from "@/lib/supabase"
 
+export async function OPTIONS() {
+  return NextResponse.json(
+    {},
+    {
+      headers: {
+        "Access-Control-Allow-Origin": "*",
+        "Access-Control-Allow-Methods": "POST, OPTIONS",
+        "Access-Control-Allow-Headers": "Content-Type, Authorization",
+      },
+    },
+  )
+}
+
 export async function POST(request: Request) {
+  const corsHeaders = {
+    "Access-Control-Allow-Origin": "*",
+    "Access-Control-Allow-Methods": "POST, OPTIONS",
+    "Access-Control-Allow-Headers": "Content-Type, Authorization",
+  }
+
   try {
     const formData = await request.formData()
     const file = formData.get("file") as File
@@ -12,15 +31,33 @@ export async function POST(request: Request) {
     console.log("Upload request received:", { bucket, userId, fileName })
 
     if (!file) {
-      return NextResponse.json({ error: "No file provided" }, { status: 400 })
+      return NextResponse.json(
+        { error: "No file provided" },
+        {
+          status: 400,
+          headers: corsHeaders,
+        },
+      )
     }
 
     if (!bucket) {
-      return NextResponse.json({ error: "No bucket specified" }, { status: 400 })
+      return NextResponse.json(
+        { error: "No bucket specified" },
+        {
+          status: 400,
+          headers: corsHeaders,
+        },
+      )
     }
 
     if (!userId) {
-      return NextResponse.json({ error: "No user ID specified" }, { status: 400 })
+      return NextResponse.json(
+        { error: "No user ID specified" },
+        {
+          status: 400,
+          headers: corsHeaders,
+        },
+      )
     }
 
     // Get admin Supabase client with service role key
@@ -31,7 +68,13 @@ export async function POST(request: Request) {
 
     if (bucketsError) {
       console.error("Error listing buckets:", bucketsError)
-      return NextResponse.json({ error: "Failed to list buckets", details: bucketsError.message }, { status: 500 })
+      return NextResponse.json(
+        { error: "Failed to list buckets", details: bucketsError.message },
+        {
+          status: 500,
+          headers: corsHeaders,
+        },
+      )
     }
 
     const bucketExists = buckets.some((b) => b.name === bucket)
@@ -44,7 +87,13 @@ export async function POST(request: Request) {
 
       if (createError) {
         console.error(`Failed to create bucket ${bucket}:`, createError)
-        return NextResponse.json({ error: "Failed to create bucket", details: createError.message }, { status: 500 })
+        return NextResponse.json(
+          { error: "Failed to create bucket", details: createError.message },
+          {
+            status: 500,
+            headers: corsHeaders,
+          },
+        )
       }
     }
 
@@ -108,7 +157,13 @@ export async function POST(request: Request) {
 
     if (error) {
       console.error("Upload error:", error)
-      return NextResponse.json({ error: "Upload failed", details: error.message }, { status: 500 })
+      return NextResponse.json(
+        { error: "Upload failed", details: error.message },
+        {
+          status: 500,
+          headers: corsHeaders,
+        },
+      )
     }
 
     // Get public URL
@@ -121,11 +176,16 @@ export async function POST(request: Request) {
     // Add timestamp for cache busting
     const cacheBustedUrl = `${publicUrl}?t=${Date.now()}`
 
-    return NextResponse.json({
-      success: true,
-      url: cacheBustedUrl,
-      path: data?.path || filePath,
-    })
+    return NextResponse.json(
+      {
+        success: true,
+        url: cacheBustedUrl,
+        path: data?.path || filePath,
+      },
+      {
+        headers: corsHeaders,
+      },
+    )
   } catch (error) {
     console.error("Upload handler error:", error)
     return NextResponse.json(
@@ -133,7 +193,10 @@ export async function POST(request: Request) {
         error: "Upload failed",
         details: error instanceof Error ? error.message : "Unknown error",
       },
-      { status: 500 },
+      {
+        status: 500,
+        headers: corsHeaders,
+      },
     )
   }
 }

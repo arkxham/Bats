@@ -1,20 +1,44 @@
 import { NextResponse } from "next/server"
 import { getSupabaseServer } from "@/lib/supabase"
 
+export async function OPTIONS() {
+  return NextResponse.json(
+    {},
+    {
+      headers: {
+        "Access-Control-Allow-Origin": "*",
+        "Access-Control-Allow-Methods": "POST, OPTIONS",
+        "Access-Control-Allow-Headers": "Content-Type, Authorization",
+      },
+    },
+  )
+}
+
 export async function POST(request: Request) {
+  const corsHeaders = {
+    "Access-Control-Allow-Origin": "*",
+    "Access-Control-Allow-Methods": "POST, OPTIONS",
+    "Access-Control-Allow-Headers": "Content-Type, Authorization",
+  }
   try {
     const { userId } = await request.json()
 
     // Validate inputs
     if (!userId) {
-      return NextResponse.json({ error: "User ID is required" }, { status: 400 })
+      return NextResponse.json(
+        { error: "User ID is required" },
+        {
+          status: 400,
+          headers: corsHeaders,
+        },
+      )
     }
 
     // Get admin Supabase client
     const supabase = getSupabaseServer()
 
     // Update the list of buckets to check to include songs
-    const buckets = ["profile-picture", "backgrounds", "songs", "descriptions"]
+    const buckets = ["profile-picture", "backgrounds", "songs"]
     const userFiles: Record<string, any> = {}
     const timestamp = Date.now() // For cache busting
 
@@ -48,23 +72,23 @@ export async function POST(request: Request) {
       }
     }
 
-    // Extract bio file
-    if (userFiles["descriptions"] && userFiles["descriptions"].length > 0) {
-      // Find the bio file
-      const bioFile = userFiles["descriptions"].find((file: any) => file.name === "bio.txt")
-
-      if (bioFile) {
-        // Add the bio file to the response
-        userFiles["bio"] = [bioFile]
-      }
-    }
-
-    return NextResponse.json({
-      success: true,
-      files: userFiles,
-    })
+    return NextResponse.json(
+      {
+        success: true,
+        files: userFiles,
+      },
+      {
+        headers: corsHeaders,
+      },
+    )
   } catch (error: any) {
     console.error("Server error:", error)
-    return NextResponse.json({ error: error.message }, { status: 500 })
+    return NextResponse.json(
+      { error: error.message },
+      {
+        status: 500,
+        headers: corsHeaders,
+      },
+    )
   }
 }
