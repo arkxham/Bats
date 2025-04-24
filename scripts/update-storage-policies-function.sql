@@ -1,4 +1,4 @@
--- Function to create storage policies
+-- Function to create storage buckets
 CREATE OR REPLACE FUNCTION create_storage_buckets()
 RETURNS void AS $
 BEGIN
@@ -16,6 +16,11 @@ BEGIN
   INSERT INTO storage.buckets (id, name, public)
   VALUES ('songs', 'songs', true)
   ON CONFLICT (id) DO UPDATE SET public = true;
+
+  -- Create descriptions bucket if it doesn't exist
+  INSERT INTO storage.buckets (id, name, public)
+  VALUES ('descriptions', 'descriptions', true)
+  ON CONFLICT (id) DO UPDATE SET public = true;
 END;
 $ LANGUAGE plpgsql SECURITY DEFINER;
 
@@ -27,6 +32,7 @@ BEGIN
   DELETE FROM storage.policies WHERE bucket_id = 'profile-picture';
   DELETE FROM storage.policies WHERE bucket_id = 'backgrounds';
   DELETE FROM storage.policies WHERE bucket_id = 'songs';
+  DELETE FROM storage.policies WHERE bucket_id = 'descriptions';
 
   -- Create policy for profile-picture bucket - allow authenticated users to upload
   INSERT INTO storage.policies (bucket_id, name, definition)
@@ -196,9 +202,67 @@ BEGIN
     )
   );
 
+  -- Create policies for descriptions bucket
+  -- Allow authenticated users to select (read) files
+  INSERT INTO storage.policies (bucket_id, name, definition)
+  VALUES (
+    'descriptions',
+    'Descriptions Public Read',
+    jsonb_build_object(
+      'name', 'Descriptions Public Read',
+      'statement', 'SELECT',
+      'resource', 'descriptions/*',
+      'action', 'select',
+      'role', 'anon'
+    )
+  );
+
+  -- Allow authenticated users to insert files
+  INSERT INTO storage.policies (bucket_id, name, definition)
+  VALUES (
+    'descriptions',
+    'Descriptions Insert Policy',
+    jsonb_build_object(
+      'name', 'Descriptions Insert Policy',
+      'statement', 'INSERT',
+      'resource', 'descriptions/*',
+      'action', 'insert',
+      'role', 'authenticated'
+    )
+  );
+
+  -- Allow authenticated users to update files
+  INSERT INTO storage.policies (bucket_id, name, definition)
+  VALUES (
+    'descriptions',
+    'Descriptions Update Policy',
+    jsonb_build_object(
+      'name', 'Descriptions Update Policy',
+      'statement', 'UPDATE',
+      'resource', 'descriptions/*',
+      'action', 'update',
+      'role', 'authenticated'
+    )
+  );
+
+  -- Allow authenticated users to delete files
+  INSERT INTO storage.policies (bucket_id, name, definition)
+  VALUES (
+    'descriptions',
+    'Descriptions Delete Policy',
+    jsonb_build_object(
+      'name', 'Descriptions Delete Policy',
+      'statement', 'DELETE',
+      'resource', 'descriptions/*',
+      'action', 'delete',
+      'role', 'authenticated'
+    )
+  );
+
   -- Disable RLS for these buckets to ensure admin access
   UPDATE storage.buckets SET public = true WHERE id = 'profile-picture';
   UPDATE storage.buckets SET public = true WHERE id = 'backgrounds';
   UPDATE storage.buckets SET public = true WHERE id = 'songs';
+  UPDATE storage.buckets SET public = true WHERE id = 'descriptions';
 END;
 $ LANGUAGE plpgsql SECURITY DEFINER;

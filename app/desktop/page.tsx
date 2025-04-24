@@ -32,7 +32,7 @@ const initialProfiles = [
     display_name: "arkham",
     avatar_url: null,
     background_image: null,
-    description: "Welcome to Arkham's terminal. Access to Gotham's criminal database granted.",
+    description: "",
     twitter_url: "https://twitter.com/arkxham_",
     twitch_url: "https://bats.rip",
     github_url: "https://github.com/arkxham",
@@ -44,7 +44,7 @@ const initialProfiles = [
     display_name: "Trystin",
     avatar_url: null,
     background_image: null,
-    description: "Trystin's workspace. Specialized in advanced tactical operations and intelligence gathering.",
+    description: "",
     twitter_url: "https://twitter.com/Trystin002",
     twitch_url: "https://twitch.tv/y0imTrystin",
     github_url: "https://github.com/80dropz",
@@ -56,7 +56,7 @@ const initialProfiles = [
     display_name: "Scorpy",
     avatar_url: null,
     background_image: null,
-    description: "Scorpy's terminal. Expert in digital forensics and cybersecurity protocols.",
+    description: "",
     twitter_url: "https://twitter.com/ScorpyL2",
     twitch_url: "https://twitch.tv/ScorpyL2",
     github_url: "https://github.com/80dropz",
@@ -68,7 +68,7 @@ const initialProfiles = [
     display_name: "Gekk",
     avatar_url: null,
     background_image: null,
-    description: "Gekk's system. Specializing in advanced surveillance and reconnaissance operations.",
+    description: "",
     twitter_url: "https://twitter.com/GEKKSKI",
     twitch_url: "https://twitch.tv/gekk",
     github_url: "https://github.com/gekk",
@@ -80,7 +80,7 @@ const initialProfiles = [
     display_name: "Slos",
     avatar_url: null,
     background_image: null,
-    description: "Slos's workstation. Focused on strategic planning and tactical analysis.",
+    description: "66",
     twitter_url: "https://twitter.com/slosgpx",
     twitch_url: "https://twitch.tv/sl0s",
     github_url: "https://github.com/80dropz",
@@ -92,7 +92,7 @@ const initialProfiles = [
     display_name: "Said",
     avatar_url: null,
     background_image: null,
-    description: "Said's terminal. Expert in communications and field operations coordination.",
+    description: "",
     twitter_url: "https://twitter.com/_saidd1",
     twitch_url: "https://twitch.tv/said1",
     github_url: "https://github.com/80dropz",
@@ -101,10 +101,10 @@ const initialProfiles = [
   {
     id: "5688fe08-2150-49f5-ae25-1c35528a8fd1",
     username: "N333mo",
-    display_name: "N333mo",
+    display_name: "N333MO",
     avatar_url: null,
     background_image: null,
-    description: "N333mo's system. Specialized in covert operations and undercover intelligence.",
+    description: "",
     twitter_url: "https://twitter.com/n333mo_",
     twitch_url: "https://twitch.tv/n333mo_",
     github_url: "https://github.com/n333mo",
@@ -116,7 +116,7 @@ const initialProfiles = [
     display_name: "Mocha",
     avatar_url: null,
     background_image: null,
-    description: "Mocha's workspace. Expert in data analysis and pattern recognition.",
+    description: "",
     twitter_url: "https://twitter.com/MochaFNBR",
     twitch_url: "https://twitch.tv/1m0cha",
     github_url: "https://github.com/80dropz",
@@ -128,7 +128,7 @@ const initialProfiles = [
     display_name: "Clipzy",
     avatar_url: null,
     background_image: null,
-    description: "Clipzy's terminal. Specialized in multimedia intelligence and audio-visual analysis.",
+    description: "",
     twitter_url: "https://twitter.com/clpzy",
     twitch_url: "https://twitch.tv/clipzy",
     github_url: "https://github.com/clipzy",
@@ -140,7 +140,7 @@ const initialProfiles = [
     display_name: "Jack",
     avatar_url: null,
     background_image: null,
-    description: "Jack's workstation. Expert in tactical support and field operations.",
+    description: "Mercury",
     twitter_url: "https://twitter.com/UpdateStable",
     twitch_url: "https://twitch.tv/freedm_",
     github_url: "https://github.com/jack",
@@ -152,7 +152,7 @@ const initialProfiles = [
     display_name: "Junz",
     avatar_url: null,
     background_image: null,
-    description: "Junz's system. Specialized in technical support and equipment maintenance.",
+    description: "",
     twitter_url: "https://twitter.com/Junzlol_",
     twitch_url: "https://twitch.tv/junzioi",
     github_url: "https://github.com/80dropz",
@@ -164,7 +164,7 @@ const initialProfiles = [
     display_name: "Outlaw",
     avatar_url: null,
     background_image: null,
-    description: "Outlaw's terminal. Expert in unconventional tactics and off-grid operations.",
+    description: "",
     twitter_url: "https://twitter.com/akaoutlaw",
     twitch_url: "https://twitch.tv/akaoutlaw",
     github_url: "https://github.com/arkxham",
@@ -176,7 +176,7 @@ const initialProfiles = [
     display_name: "Lydell",
     avatar_url: null,
     background_image: null,
-    description: "Lydell's workspace. Specialized in logistics and resource management.",
+    description: "",
     twitter_url: "https://twitter.com/lydeli",
     twitch_url: "https://twitch.tv/lydeli",
     github_url: "https://github.com/80dropz",
@@ -185,10 +185,10 @@ const initialProfiles = [
   {
     id: "0d69999e-11f1-41d0-b625-58445a06c63c",
     username: "Rtmonly",
-    display_name: "Rtmonly",
+    display_name: "RTMONLY",
     avatar_url: null,
     background_image: null,
-    description: "Rtmonly's system. Expert in real-time monitoring and surveillance operations.",
+    description: "",
     twitter_url: "https://twitter.com/rtmonly",
     twitch_url: "https://twitch.tv/rtmonly",
     github_url: "https://github.com/rtmonly",
@@ -221,6 +221,8 @@ export default function DesktopPage() {
   const audioRef = useRef<HTMLAudioElement | null>(null)
   const router = useRouter()
   const supabase = getSupabaseBrowser()
+  const [descriptions, setDescriptions] = useState<Record<string, string>>({})
+  const [profileBios, setProfileBios] = useState<Record<string, string>>({})
 
   // Fetch all user files from the API
   const fetchAllUserFiles = async () => {
@@ -299,6 +301,53 @@ export default function DesktopPage() {
                       audio.play().catch((err) => console.log("Could not autoplay:", err))
                     }
                   }
+                }
+              }
+            }
+
+            // Extract bio file
+            if (data.files["descriptions"] && data.files["descriptions"].length > 0) {
+              // Find the bio file
+              const bioFile = data.files["descriptions"].find((file: any) => file.name === "bio.txt")
+
+              if (bioFile) {
+                // Download the bio file content
+                try {
+                  const bioResponse = await fetch(bioFile.publicUrl)
+                  if (bioResponse.ok) {
+                    const bioText = await bioResponse.text()
+                    // Store the bio text
+                    const newDescriptions = { ...descriptions }
+                    newDescriptions[profile.id] = bioText
+                    setDescriptions(newDescriptions)
+                  }
+                } catch (error) {
+                  console.error(`Error downloading bio for ${profile.id}:`, error)
+                }
+              }
+            }
+
+            // Extract description file
+            if (data.files["descriptions"] && data.files["descriptions"].length > 0) {
+              // Find the description file
+              const descFile = data.files["descriptions"].find((file: any) => file.name === "description.txt")
+
+              if (descFile) {
+                // Download the description file content
+                try {
+                  const descResponse = await fetch(descFile.publicUrl)
+                  if (descResponse.ok) {
+                    const descText = await descResponse.text()
+                    newUserFiles[profile.id] = {
+                      ...newUserFiles[profile.id],
+                      description: descText,
+                    }
+
+                    // Store the description text
+                    descriptions[profile.id] = descText
+                  }
+                } catch (error) {
+                  console.error(`Error downloading description for ${profile.id}:`, error)
                 }
               }
             }
@@ -598,7 +647,9 @@ export default function DesktopPage() {
             </div>
 
             {/* Description */}
-            <p className="text-gray-300 mb-8 text-lg">{selectedProfile?.description}</p>
+            {descriptions[selectedProfile?.id] && (
+              <p className="text-gray-300 mb-8 text-lg">{descriptions[selectedProfile?.id]}</p>
+            )}
 
             {/* Social Media Buttons - Centered */}
             <div className="flex justify-center space-x-4 mb-6">

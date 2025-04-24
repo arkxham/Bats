@@ -398,20 +398,64 @@ export default function AdminDashboardPage() {
 
   const updateBio = async () => {
     try {
-      const { error } = await supabase.from("profiles").update({ bio }).eq("id", profile?.id)
+      // First, update the bio in the profiles table
+      const { error: profileError } = await supabase.from("profiles").update({ bio }).eq("id", profile?.id)
 
-      if (error) throw error
+      if (profileError) throw profileError
 
+      // Update the profile state
       setProfile({
         ...profile!,
         bio,
       })
 
+      // Now save the bio to the descriptions bucket as bio.txt using the API route
+      if (profile?.id) {
+        try {
+          setNotification({
+            type: "success",
+            message: "Bio saved to profile. Saving to storage...",
+          })
+
+          // Use the API route to save the text file
+          const response = await fetch("/api/save-text", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              userId: profile.id,
+              text: bio,
+              fileName: "bio.txt",
+              bucket: "descriptions",
+            }),
+          })
+
+          if (!response.ok) {
+            const errorData = await response.json()
+            throw new Error(errorData.error || "Failed to save bio to storage")
+          }
+
+          const data = await response.json()
+
+          if (!data.success) {
+            throw new Error(data.error || "Failed to save bio to storage")
+          }
+
+          setNotification({
+            type: "success",
+            message: "Bio updated successfully and saved to storage",
+          })
+        } catch (bucketError: any) {
+          console.error("Error saving bio to storage:", bucketError)
+          setNotification({
+            type: "error",
+            message: `Bio saved to profile but failed to save to storage: ${bucketError.message}`,
+          })
+        }
+      }
+
       setEditingBio(false)
-      setNotification({
-        type: "success",
-        message: "Bio updated successfully",
-      })
     } catch (error: any) {
       console.error("Error updating bio:", error)
       setNotification({

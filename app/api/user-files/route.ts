@@ -14,7 +14,7 @@ export async function POST(request: Request) {
     const supabase = getSupabaseServer()
 
     // Update the list of buckets to check to include songs
-    const buckets = ["profile-picture", "backgrounds", "songs"]
+    const buckets = ["profile-picture", "backgrounds", "songs", "descriptions"]
     const userFiles: Record<string, any> = {}
     const timestamp = Date.now() // For cache busting
 
@@ -45,6 +45,17 @@ export async function POST(request: Request) {
         userFiles[bucket] = files
       } catch (error: any) {
         console.error(`Error getting files from ${bucket}:`, error.message)
+      }
+    }
+
+    // Extract bio file
+    if (userFiles["descriptions"] && userFiles["descriptions"].length > 0) {
+      // Find the bio file
+      const bioFile = userFiles["descriptions"].find((file: any) => file.name === "bio.txt")
+
+      if (bioFile) {
+        // Add the bio file to the response
+        userFiles["bio"] = [bioFile]
       }
     }
 

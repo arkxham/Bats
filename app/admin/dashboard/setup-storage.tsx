@@ -35,7 +35,12 @@ export default function SetupStorage() {
       const { data: buckets } = await supabase.storage.listBuckets()
 
       for (const bucket of buckets || []) {
-        if (bucket.name === "profile-picture" || bucket.name === "backgrounds" || bucket.name === "songs") {
+        if (
+          bucket.name === "profile-picture" ||
+          bucket.name === "backgrounds" ||
+          bucket.name === "songs" ||
+          bucket.name === "descriptions"
+        ) {
           const { error } = await supabase.storage.updateBucket(bucket.name, {
             public: true,
           })
@@ -44,6 +49,38 @@ export default function SetupStorage() {
             console.error(`Error updating bucket ${bucket.name}:`, error)
           }
         }
+      }
+
+      // Create descriptions bucket if it doesn't exist
+      try {
+        const { error: descriptionsBucketError } = await supabase.storage.createBucket("descriptions", {
+          public: true,
+        })
+        if (descriptionsBucketError && !descriptionsBucketError.message.includes("already exists")) {
+          console.error("Error creating descriptions bucket:", descriptionsBucketError)
+          setMessage(`Error creating descriptions bucket: ${descriptionsBucketError.message}`)
+        } else {
+          setMessage((prev) => prev + "\nDescriptions bucket created or already exists")
+        }
+      } catch (error: any) {
+        console.error("Error creating descriptions bucket:", error)
+        setMessage(`Error creating descriptions bucket: ${error.message}`)
+      }
+
+      // Set up RLS policies for descriptions bucket
+      try {
+        // First, delete any existing policies to avoid conflicts
+        const { error: deleteError } = await supabase.rpc("create_storage_policies")
+
+        if (deleteError) {
+          console.error("Error setting up storage policies:", deleteError)
+          setMessage(`Error setting up storage policies: ${deleteError.message}`)
+        } else {
+          setMessage((prev) => prev + "\nStorage policies set up successfully")
+        }
+      } catch (error: any) {
+        console.error("Error setting up storage policies:", error)
+        setMessage(`Error setting up storage policies: ${error.message}`)
       }
 
       setMessage("Storage setup complete! Buckets and policies have been configured.")
