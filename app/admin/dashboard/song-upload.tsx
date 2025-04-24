@@ -1,9 +1,9 @@
 "use client"
 
 import type React from "react"
-
-import { useState, useRef } from "react"
-import { Music, Upload } from "lucide-react"
+import { useState } from "react"
+import { Upload, Music } from "lucide-react"
+import { getApiBaseUrl } from "@/lib/api-client"
 
 interface SongUploadProps {
   userId: string
@@ -14,7 +14,6 @@ interface SongUploadProps {
 export default function SongUpload({ userId, onUploadComplete, onError }: SongUploadProps) {
   const [uploading, setUploading] = useState(false)
   const [isDragging, setIsDragging] = useState(false)
-  const dropRef = useRef<HTMLDivElement>(null)
 
   // Set up drag and drop event listeners
   const handleDragOver = (e: React.DragEvent) => {
@@ -63,15 +62,21 @@ export default function SongUpload({ userId, onUploadComplete, onError }: SongUp
       formData.append("userId", userId)
       formData.append("fileName", fileName)
 
-      // Upload using the API route
-      const response = await fetch("/api/upload", {
+      // Get the API base URL
+      const baseUrl = getApiBaseUrl()
+      console.log(`Using API base URL for song upload: ${baseUrl}`)
+
+      // Upload using the API route with the correct base URL
+      const response = await fetch(`${baseUrl}/api/upload`, {
         method: "POST",
         body: formData,
       })
 
       if (!response.ok) {
-        const errorData = await response.json()
-        throw new Error(errorData.details || "Upload failed")
+        console.error(`Error response: ${response.status} ${response.statusText}`)
+        const errorText = await response.text()
+        console.error(`Error details: ${errorText}`)
+        throw new Error(`Upload failed: ${response.statusText}`)
       }
 
       const data = await response.json()
@@ -94,7 +99,6 @@ export default function SongUpload({ userId, onUploadComplete, onError }: SongUp
     <div>
       <h3 className="text-md font-semibold mb-3">Profile Song</h3>
       <div
-        ref={dropRef}
         onDragOver={handleDragOver}
         onDragLeave={handleDragLeave}
         onDrop={handleDrop}

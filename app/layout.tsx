@@ -7,8 +7,8 @@ import { ThemeProvider } from "@/components/theme-provider"
 const inter = Inter({ subsets: ["latin"] })
 
 export const metadata: Metadata = {
-  title: "Gotham City Secure System",
-  description: "Secure access for authorized personnel only",
+  title: "The Batcave",
+  description: "tw",
     generator: 'v0.dev'
 }
 

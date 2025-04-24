@@ -4,6 +4,7 @@ import { useState, useEffect, useRef } from "react"
 import { useRouter } from "next/navigation"
 import Image from "next/image"
 import { getSupabaseBrowser } from "@/lib/supabase"
+import { getApiBaseUrl } from "@/lib/api-client"
 import {
   Folder,
   User,
@@ -19,6 +20,7 @@ import {
   RefreshCw,
   Volume2,
   VolumeX,
+  AlertCircle,
 } from "lucide-react"
 
 // Default profile picture URL
@@ -100,7 +102,7 @@ const initialProfiles = [
   },
   {
     id: "5688fe08-2150-49f5-ae25-1c35528a8fd1",
-    username: "N333mo",
+    username: "N333MO",
     display_name: "N333MO",
     avatar_url: null,
     background_image: null,
@@ -177,15 +179,15 @@ const initialProfiles = [
     avatar_url: null,
     background_image: null,
     description: "",
-    twitter_url: "https://twitter.com/lydeli",
+    twitter_url: "https://twitter.com/lydeli_",
     twitch_url: "https://twitch.tv/lydeli",
     github_url: "https://github.com/80dropz",
     steam_url: "https://steamcommunity.com/id/8inchDeli/",
   },
   {
     id: "0d69999e-11f1-41d0-b625-58445a06c63c",
-    username: "Rtmonly",
-    display_name: "RTMONLY",
+    username: "RTMONLY",
+    display_name: "rtmonly",
     avatar_url: null,
     background_image: null,
     description: "",
@@ -206,6 +208,11 @@ type UserFiles = {
   }[]
 }
 
+// Add this at the top of the component
+const MAX_RETRIES = 3
+const RETRY_DELAY = 1000 // 1 second
+const SUPABASE_URL = "https://cgggsudeipsyfcszouil.supabase.co"
+
 export default function DesktopPage() {
   const [profiles, setProfiles] = useState(initialProfiles)
   const [selectedProfile, setSelectedProfile] = useState(initialProfiles[0])
@@ -218,13 +225,37 @@ export default function DesktopPage() {
   const [currentSongName, setCurrentSongName] = useState<string | null>(null)
   const [refreshing, setRefreshing] = useState(false)
   const [userFiles, setUserFiles] = useState<Record<string, UserFiles>>({})
+  const [apiError, setApiError] = useState<string | null>(null)
   const audioRef = useRef<HTMLAudioElement | null>(null)
   const router = useRouter()
   const supabase = getSupabaseBrowser()
 
-  // Fetch all user files from the API
-  const fetchAllUserFiles = async () => {
+  // Add this function to the desktop page component
+  const handleApiError = (error: any) => {
+    console.error("API error occurred:", error)
+    setApiError(`API Error: ${error.message || "Unknown error"}. Using default profiles.`)
+
+    // Continue showing the UI with default profile images
+    const defaultProfileImages: Record<string, string> = {}
+
+    // Set default profile images for all profiles
+    profiles.forEach((profile) => {
+      defaultProfileImages[profile.id] = DEFAULT_PROFILE_PIC
+    })
+
+    // Update state with default values
+    setProfileImages(defaultProfileImages)
+  }
+
+  // Dismiss error message
+  const dismissError = () => {
+    setApiError(null)
+  }
+
+  // Modify the fetchAllUserFiles function to include retries and use the hardcoded Supabase URL
+  const fetchAllUserFiles = async (retryCount = 0) => {
     setRefreshing(true)
+    setApiError(null)
 
     try {
       // Fetch files for each profile
@@ -235,19 +266,78 @@ export default function DesktopPage() {
 
       for (const profile of profiles) {
         try {
-          const response = await fetch("/api/user-files", {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-            },
-            body: JSON.stringify({ userId: profile.id }),
-          })
+          // Get the API base URL
+          const baseUrl = getApiBaseUrl()
+          console.log(`Using API base URL: ${baseUrl} for user ${profile.id}`)
+          console.log(`Using Supabase URL: ${SUPABASE_URL}`)
+
+          // Try to fetch from the main API
+          let response: Response | null = null
+          let error: Error | null = null
+
+          try {
+            response = await fetch(`${baseUrl}/api/user-files`, {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+              },
+              body: JSON.stringify({
+                userId: profile.id,
+                supabaseUrl: SUPABASE_URL, // Pass the Supabase URL explicitly
+              }),
+              credentials: "include", // Include credentials in the request
+              // Add a timeout to prevent hanging requests
+              signal: AbortSignal.timeout(15000), // 15 second timeout
+            })
+
+            // If we get a 405 Method Not Allowed, try with GET method
+            if (response.status === 405) {
+              console.log(`POST method not allowed for user ${profile.id}, trying GET...`)
+              response = await fetch(`${baseUrl}/api/user-files?userId=${profile.id}`, {
+                method: "GET",
+                headers: {
+                  "Content-Type": "application/json",
+                },
+                credentials: "include",
+                signal: AbortSignal.timeout(10000), // 10 second timeout
+              })
+            }
+          } catch (err: any) {
+            error = err
+            console.error(`Network error for user ${profile.id}:`, err)
+          }
+
+          // If the main API fails, try the fallback API
+          if (!response || !response.ok) {
+            console.log(`Main API failed for user ${profile.id}, trying fallback...`)
+
+            try {
+              response = await fetch(`${baseUrl}/api/fallback`, {
+                method: "POST",
+                headers: {
+                  "Content-Type": "application/json",
+                },
+                body: JSON.stringify({ userId: profile.id }),
+                signal: AbortSignal.timeout(5000), // 5 second timeout for fallback
+              })
+            } catch (fallbackErr: any) {
+              console.error(`Fallback API also failed for user ${profile.id}:`, fallbackErr)
+              // If both APIs fail, continue to the next profile
+              continue
+            }
+          }
 
           if (!response.ok) {
+            console.error(`Error response for user ${profile.id}: ${response.status} ${response.statusText}`)
+            const errorText = await response.text().catch(() => "No error details available")
+            console.error(`Error details: ${errorText}`)
             throw new Error(`Error fetching files: ${response.statusText}`)
           }
 
-          const data = await response.json()
+          const data = await response.json().catch((error) => {
+            console.error(`JSON parsing error for user ${profile.id}:`, error)
+            throw new Error("Failed to parse response as JSON")
+          })
 
           if (data.success && data.files) {
             newUserFiles[profile.id] = data.files
@@ -305,26 +395,27 @@ export default function DesktopPage() {
           }
         } catch (error) {
           console.error(`Error fetching files for user ${profile.id}:`, error)
+          // Continue with the next profile instead of breaking the entire loop
         }
       }
 
       // Update state with all fetched files
       setUserFiles(newUserFiles)
-      setProfileImages(newProfileImages)
-      setBackgroundImages(newBackgroundImages)
-      setProfileSongs(newProfileSongs)
+      setProfileImages((prevImages) => ({ ...prevImages, ...newProfileImages }))
+      setBackgroundImages((prevBgs) => ({ ...prevBgs, ...newBackgroundImages }))
+      setProfileSongs((prevSongs) => ({ ...prevSongs, ...newProfileSongs }))
 
       // Auto-play song for the initially selected profile
-      if (selectedProfile && profileSongs[selectedProfile.id]) {
+      if (selectedProfile && newProfileSongs[selectedProfile.id]) {
         if (!audioRef.current) {
-          const audio = new Audio(profileSongs[selectedProfile.id])
+          const audio = new Audio(newProfileSongs[selectedProfile.id])
           audio.volume = 0.2
           audioRef.current = audio
 
           // Get the song name
-          if (userFiles[selectedProfile.id] && userFiles[selectedProfile.id]["songs"]) {
-            const songFile = userFiles[selectedProfile.id]["songs"].find(
-              (file) => file.publicUrl === profileSongs[selectedProfile.id],
+          if (newUserFiles[selectedProfile.id] && newUserFiles[selectedProfile.id]["songs"]) {
+            const songFile = newUserFiles[selectedProfile.id]["songs"].find(
+              (file) => file.publicUrl === newProfileSongs[selectedProfile.id],
             )
             if (songFile) {
               setCurrentSongName(songFile.name.replace(/^song-/, "").replace(/\.[^/.]+$/, ""))
@@ -335,8 +426,24 @@ export default function DesktopPage() {
           setIsPlaying(true)
         }
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error fetching user files:", error)
+
+      // Implement retry logic
+      if (retryCount < MAX_RETRIES) {
+        console.log(`Retrying fetchAllUserFiles (${retryCount + 1}/${MAX_RETRIES})...`)
+        setTimeout(
+          () => {
+            fetchAllUserFiles(retryCount + 1).catch((error) => {
+              console.error(`Retry ${retryCount + 1} failed:`, error)
+            })
+          },
+          RETRY_DELAY * (retryCount + 1),
+        )
+      } else {
+        // If all retries fail, use default profiles
+        handleApiError(error)
+      }
     } finally {
       setRefreshing(false)
     }
@@ -344,7 +451,10 @@ export default function DesktopPage() {
 
   // Initial fetch of user files
   useEffect(() => {
-    fetchAllUserFiles()
+    fetchAllUserFiles().catch((error) => {
+      console.error("Failed to fetch user files:", error)
+      handleApiError(error)
+    })
   }, [])
 
   // Clock update
@@ -484,6 +594,17 @@ export default function DesktopPage() {
         backgroundRepeat: "no-repeat",
       }}
     >
+      {/* Error notification */}
+      {apiError && (
+        <div className="fixed top-4 left-1/2 transform -translate-x-1/2 z-50 bg-red-900/80 text-white px-4 py-3 rounded-md shadow-lg flex items-center">
+          <AlertCircle className="h-5 w-5 mr-2 text-red-300" />
+          <span className="mr-4">{apiError}</span>
+          <button onClick={dismissError} className="text-white hover:text-red-300">
+            &times;
+          </button>
+        </div>
+      )}
+
       {/* Top profile bar - fixed at the top */}
       <div className="bg-black/80 p-1 border-b border-gray-800 sticky top-0 z-50">
         <div className="max-w-screen-xl mx-auto">

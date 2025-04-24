@@ -178,7 +178,12 @@ export default function AdminDashboardPage() {
     try {
       setRefreshingImages(true)
 
-      const response = await fetch("/api/user-files", {
+      // Get the API base URL
+      const { getApiBaseUrl } = await import("@/lib/api-client")
+      const baseUrl = getApiBaseUrl()
+      console.log(`Using API base URL for fetching files: ${baseUrl}`)
+
+      const response = await fetch(`${baseUrl}/api/user-files`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -187,6 +192,9 @@ export default function AdminDashboardPage() {
       })
 
       if (!response.ok) {
+        console.error(`Error response: ${response.status} ${response.statusText}`)
+        const errorText = await response.text()
+        console.error(`Error details: ${errorText}`)
         throw new Error(`Error fetching files: ${response.statusText}`)
       }
 
@@ -263,6 +271,7 @@ export default function AdminDashboardPage() {
     }
   }
 
+  // Update the handleAvatarUpload function
   const handleAvatarUpload = async (file: File) => {
     try {
       setUploadingAvatar(true)
@@ -284,15 +293,22 @@ export default function AdminDashboardPage() {
       formData.append("userId", profile?.id || "")
       formData.append("fileName", fileName)
 
-      // Upload using the API route
-      const response = await fetch("/api/upload", {
+      // Get the API base URL
+      const { getApiBaseUrl } = await import("@/lib/api-client")
+      const baseUrl = getApiBaseUrl()
+      console.log(`Using API base URL for upload: ${baseUrl}`)
+
+      // Upload using the API route with the correct base URL
+      const response = await fetch(`${baseUrl}/api/upload`, {
         method: "POST",
         body: formData,
       })
 
       if (!response.ok) {
-        const errorData = await response.json()
-        throw new Error(errorData.details || "Upload failed")
+        console.error(`Error response: ${response.status} ${response.statusText}`)
+        const errorText = await response.text()
+        console.error(`Error details: ${errorText}`)
+        throw new Error(`Upload failed: ${response.statusText}`)
       }
 
       const data = await response.json()
@@ -359,15 +375,22 @@ export default function AdminDashboardPage() {
       formData.append("userId", profile?.id || "")
       formData.append("fileName", fileName)
 
-      // Upload using the API route
-      const response = await fetch("/api/upload", {
+      // Get the API base URL
+      const { getApiBaseUrl } = await import("@/lib/api-client")
+      const baseUrl = getApiBaseUrl()
+      console.log(`Using API base URL for background upload: ${baseUrl}`)
+
+      // Upload using the API route with the correct base URL
+      const response = await fetch(`${baseUrl}/api/upload`, {
         method: "POST",
         body: formData,
       })
 
       if (!response.ok) {
-        const errorData = await response.json()
-        throw new Error(errorData.details || "Upload failed")
+        console.error(`Error response: ${response.status} ${response.statusText}`)
+        const errorText = await response.text()
+        console.error(`Error details: ${errorText}`)
+        throw new Error(`Upload failed: ${response.statusText}`)
       }
 
       const data = await response.json()
