@@ -27,8 +27,8 @@ import {
 // Add this import at the top with the other imports
 import SettingsWindow from "@/components/settings-window"
 
-// Default profile picture URL
-const DEFAULT_PROFILE_PIC = "https://th.bing.com/th/id/OIP.t8GsH1Q3v-NLfvTKIHIc3QHaHa?w=199&h=199&c=7&r=0&o=5&pid=1.7"
+// Update the DEFAULT_PROFILE_PIC constant to use a more reliable URL
+const DEFAULT_PROFILE_PIC = "/dark-knight-profile.png"
 
 // Initial profile data with descriptions and social media links
 const initialProfiles = [
@@ -238,6 +238,15 @@ export default function DesktopPage() {
   const [isSettingsOpen, setIsSettingsOpen] = useState(false)
   const [settingsPosition, setSettingsPosition] = useState({ x: 100, y: 100 })
   const [volume, setVolume] = useState(0.2) // Default volume
+
+  // Set default profile images immediately on component mount
+  useEffect(() => {
+    const defaultImages: Record<string, string> = {}
+    profiles.forEach((profile) => {
+      defaultImages[profile.id] = DEFAULT_PROFILE_PIC
+    })
+    setProfileImages(defaultImages)
+  }, [])
 
   // Add this function inside the DesktopPage component
   const handleVolumeChange = (newVolume: number) => {
@@ -550,8 +559,9 @@ export default function DesktopPage() {
     }
   }
 
-  // Get profile image URL (from storage or default)
+  // Update the getProfileImageUrl function to ensure it always returns a valid URL
   const getProfileImageUrl = (profileId: string) => {
+    if (!profileId) return DEFAULT_PROFILE_PIC
     return profileImages[profileId] || DEFAULT_PROFILE_PIC
   }
 
@@ -623,13 +633,21 @@ export default function DesktopPage() {
                           selectedProfile?.id === profile.id ? "border-yellow-400" : "border-transparent"
                         }`}
                       >
+                        {/* Update the Image components to handle errors better */}
                         <Image
                           src={getProfileImageUrl(profile.id) || "/placeholder.svg"}
                           alt={profile.username}
                           width={40}
                           height={40}
                           className="object-cover w-full h-full"
-                          unoptimized // Disable Next.js image optimization to prevent caching
+                          unoptimized
+                          onError={() => {
+                            // If image fails to load, update the state with the default image
+                            setProfileImages((prev) => ({
+                              ...prev,
+                              [profile.id]: DEFAULT_PROFILE_PIC,
+                            }))
+                          }}
                         />
                       </div>
                       <span className="text-xs mt-1 font-medium">{profile.username}</span>
@@ -699,13 +717,22 @@ export default function DesktopPage() {
             {/* Profile header */}
             <div className="flex flex-col items-center mb-6">
               <div className="w-20 h-20 rounded-full overflow-hidden mb-4 border-2 border-yellow-500/50">
+                {/* Update the Image components to handle errors better */}
                 <Image
                   src={getProfileImageUrl(selectedProfile?.id) || "/placeholder.svg"}
                   alt={selectedProfile?.username || "User"}
                   width={80}
                   height={80}
                   className="object-cover w-full h-full"
-                  unoptimized // Disable Next.js image optimization to prevent caching
+                  unoptimized
+                  onError={() => {
+                    if (selectedProfile) {
+                      setProfileImages((prev) => ({
+                        ...prev,
+                        [selectedProfile.id]: DEFAULT_PROFILE_PIC,
+                      }))
+                    }
+                  }}
                 />
               </div>
               <h2 className="text-2xl font-bold text-yellow-400">
@@ -780,13 +807,22 @@ export default function DesktopPage() {
             </div>
             <div className="px-4 flex items-center">
               <div className="w-6 h-6 rounded-full overflow-hidden mr-2">
+                {/* Update the Image components to handle errors better */}
                 <Image
                   src={getProfileImageUrl(selectedProfile?.id) || "/placeholder.svg"}
                   alt={selectedProfile?.username || "User"}
                   width={24}
                   height={24}
                   className="object-cover w-full h-full"
-                  unoptimized // Disable Next.js image optimization to prevent caching
+                  unoptimized
+                  onError={() => {
+                    if (selectedProfile) {
+                      setProfileImages((prev) => ({
+                        ...prev,
+                        [selectedProfile.id]: DEFAULT_PROFILE_PIC,
+                      }))
+                    }
+                  }}
                 />
               </div>
               {selectedProfile?.username}
