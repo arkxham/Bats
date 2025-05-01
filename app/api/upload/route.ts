@@ -106,34 +106,6 @@ export async function POST(request: Request) {
       console.error(`Failed to update bucket ${bucket}:`, updateError)
     }
 
-    // Check if this is a text file (for bio)
-    if (fileName === "bio.txt" && bucket === "descriptions") {
-      // For text files, we need to read the content
-      const textContent = await file.text()
-
-      // Upload directly using the storage API
-      const { error: uploadError } = await supabase.storage.from(bucket).upload(`${userId}/${fileName}`, textContent, {
-        contentType: "text/plain",
-        upsert: true,
-      })
-
-      if (uploadError) {
-        console.error(`Error uploading ${fileName} to ${bucket}:`, uploadError)
-        return NextResponse.json({ success: false, error: uploadError.message }, { status: 500, headers: corsHeaders })
-      }
-
-      // Get the public URL
-      const { data: urlData } = supabase.storage.from(bucket).getPublicUrl(`${userId}/${fileName}`)
-
-      return NextResponse.json(
-        {
-          success: true,
-          url: urlData.publicUrl,
-        },
-        { headers: corsHeaders },
-      )
-    }
-
     // Delete existing files in the user's folder before uploading new one
     try {
       console.log(`Checking for existing files in ${bucket}/${userId}`)

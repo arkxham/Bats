@@ -34,10 +34,8 @@ export default function SetupStorage() {
       // Manually update bucket settings to be public
       const { data: buckets } = await supabase.storage.listBuckets()
 
-      const targetBuckets = ["profile-picture", "backgrounds", "songs", "descriptions"]
-
       for (const bucket of buckets || []) {
-        if (targetBuckets.includes(bucket.name)) {
+        if (bucket.name === "profile-picture" || bucket.name === "backgrounds" || bucket.name === "songs") {
           const { error } = await supabase.storage.updateBucket(bucket.name, {
             public: true,
           })

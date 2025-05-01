@@ -421,19 +421,6 @@ export default function AdminDashboardPage() {
 
   const updateBio = async () => {
     try {
-      // First, ensure the descriptions bucket exists and has proper policies
-      const { getApiBaseUrl } = await import("@/lib/api-client")
-      const baseUrl = getApiBaseUrl()
-
-      const setupResponse = await fetch(`${baseUrl}/api/setup-descriptions-bucket`, {
-        method: "POST",
-      })
-
-      if (!setupResponse.ok) {
-        console.error("Failed to set up descriptions bucket:", await setupResponse.text())
-      }
-
-      // Update the bio in the profiles table first for backward compatibility
       const { error } = await supabase.from("profiles").update({ bio }).eq("id", profile?.id)
 
       if (error) throw error
@@ -442,26 +429,6 @@ export default function AdminDashboardPage() {
         ...profile!,
         bio,
       })
-
-      // Now try to upload the bio as a file using the upload API instead of direct storage access
-      if (profile?.id) {
-        const formData = new FormData()
-        const bioBlob = new Blob([bio], { type: "text/plain" })
-        formData.append("file", bioBlob, "bio.txt")
-        formData.append("bucket", "descriptions")
-        formData.append("userId", profile.id)
-        formData.append("fileName", "bio.txt")
-
-        const uploadResponse = await fetch(`${baseUrl}/api/upload`, {
-          method: "POST",
-          body: formData,
-        })
-
-        if (!uploadResponse.ok) {
-          console.error("Failed to upload bio file:", await uploadResponse.text())
-          // Don't throw error here, as we've already updated the profile table
-        }
-      }
 
       setEditingBio(false)
       setNotification({
