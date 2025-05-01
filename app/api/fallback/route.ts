@@ -26,7 +26,12 @@ export async function GET() {
     {
       success: true,
       message: "Fallback API is working",
-      timestamp: new Date().toISOString(),
+      files: {
+        "profile-picture": [],
+        backgrounds: [],
+        songs: [],
+        descriptions: [],
+      },
     },
     {
       headers: corsHeaders,
@@ -50,6 +55,7 @@ export async function POST() {
         "profile-picture": [],
         backgrounds: [],
         songs: [],
+        descriptions: [],
       },
     },
     {

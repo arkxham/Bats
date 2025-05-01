@@ -212,8 +212,9 @@ const RETRY_DELAY = 1000 // 1 second
 const SUPABASE_URL = "https://cgggsudeipsyfcszouil.supabase.co"
 
 export default function DesktopPage() {
-  const [profiles, setProfiles] = useState(initialProfiles)
-  const [selectedProfile, setSelectedProfile] = useState(initialProfiles[0])
+  // Use client-side only state initialization to avoid hydration errors
+  const [profiles] = useState(initialProfiles)
+  const [selectedProfile, setSelectedProfile] = useState<(typeof initialProfiles)[0] | null>(null)
   const [currentTime, setCurrentTime] = useState(new Date())
   const [isPlaying, setIsPlaying] = useState(false)
   const [isMuted, setIsMuted] = useState(false)
@@ -225,6 +226,7 @@ export default function DesktopPage() {
   const [userFiles, setUserFiles] = useState<Record<string, UserFiles>>({})
   const [apiError, setApiError] = useState<string | null>(null)
   const [loadingProgress, setLoadingProgress] = useState(0)
+  const [isLoaded, setIsLoaded] = useState(false)
   const audioRef = useRef<HTMLAudioElement | null>(null)
   const router = useRouter()
   const supabase = getSupabaseBrowser()
@@ -238,6 +240,12 @@ export default function DesktopPage() {
   const [profileDescriptions, setProfileDescriptions] = useState<ProfileDescriptions>({})
 
   const cacheRef = useRef<Map<string, { data: any; timestamp: number }>>(new Map())
+
+  // Initialize selected profile after component mounts to avoid hydration errors
+  useEffect(() => {
+    setSelectedProfile(initialProfiles[0])
+    setIsLoaded(true)
+  }, [])
 
   // Add this function inside the DesktopPage component
   const handleVolumeChange = (newVolume: number) => {
@@ -286,7 +294,7 @@ export default function DesktopPage() {
       const baseUrl = getApiBaseUrl()
 
       // Use GET request with userId as a query parameter
-      const response = await fetch(`${baseUrl}/api/user-files?userId=${encodeURIComponent(userId)}`, {
+      const response = await fetch(`${baseUrl}/api/fallback`, {
         method: "GET",
         headers: {
           "Content-Type": "application/json",
@@ -441,15 +449,17 @@ export default function DesktopPage() {
       setRefreshing(false)
       setLoadingProgress(100)
     }
-  }, [profiles, selectedProfile, volume, fetchProfileData, processProfileData])
+  }, [profiles, selectedProfile, volume, fetchProfileData, processProfileData, userFiles, profileSongs])
 
-  // Initial fetch of all user files
+  // Initial fetch of all user files - only after component is mounted
   useEffect(() => {
-    fetchAllUserFiles().catch((error) => {
-      console.error("Failed to fetch user files:", error)
-      handleApiError(error)
-    })
-  }, [fetchAllUserFiles])
+    if (isLoaded) {
+      fetchAllUserFiles().catch((error) => {
+        console.error("Failed to fetch user files:", error)
+        handleApiError(error)
+      })
+    }
+  }, [fetchAllUserFiles, isLoaded])
 
   // Clock update
   useEffect(() => {
@@ -488,7 +498,7 @@ export default function DesktopPage() {
   }
 
   // Update the handleProfileSelect function to also set the description
-  const handleProfileSelect = (profile: typeof selectedProfile) => {
+  const handleProfileSelect = (profile: (typeof initialProfiles)[0]) => {
     setSelectedProfile(profile)
 
     // Play a selection sound
@@ -580,6 +590,15 @@ export default function DesktopPage() {
   // Toggle mute/unmute
   const toggleMute = () => {
     setIsMuted(!isMuted)
+  }
+
+  // If not loaded yet, show a simple loading state to avoid hydration errors
+  if (!isLoaded) {
+    return (
+      <div className="min-h-screen bg-black text-white flex items-center justify-center">
+        <div className="w-16 h-16 border-4 border-yellow-500 border-t-transparent rounded-full animate-spin"></div>
+      </div>
+    )
   }
 
   return (
