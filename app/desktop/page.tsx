@@ -1,11 +1,9 @@
 "use client"
 
-import { useState, useEffect, useRef } from "react"
+import { useState, useEffect, useRef, useCallback } from "react"
 import { useRouter } from "next/navigation"
 import Image from "next/image"
 import { getSupabaseBrowser } from "@/lib/supabase"
-// Add this near the top of the file, after the imports
-import { apiRequest } from "@/lib/api-client"
 import {
   Folder,
   User,
@@ -23,6 +21,9 @@ import {
   VolumeX,
   AlertCircle,
 } from "lucide-react"
+
+// Add this import at the top with the other imports
+import SettingsWindow from "@/components/settings-window"
 
 // Default profile picture URL
 const DEFAULT_PROFILE_PIC = "https://th.bing.com/th/id/OIP.t8GsH1Q3v-NLfvTKIHIc3QHaHa?w=199&h=199&c=7&r=0&o=5&pid=1.7"
@@ -53,18 +54,7 @@ const initialProfiles = [
     github_url: "https://github.com/80dropz",
     steam_url: "https://steamcommunity.com/id/trystin/",
   },
-  {
-    id: "18d38ba4-f85f-4763-98a2-d433b2b46344",
-    username: "Scorpy",
-    display_name: "Scorpy",
-    avatar_url: null,
-    background_image: null,
-    description: "",
-    twitter_url: "https://twitter.com/ScorpyL2",
-    twitch_url: "https://twitch.tv/ScorpyL2",
-    github_url: "https://github.com/80dropz",
-    steam_url: "https://steamcommunity.com/id/scorpy/",
-  },
+  // Scorpy removed from the list
   {
     id: "7306d120-20c9-4db9-8673-91402084f42e",
     username: "Gekk",
@@ -209,6 +199,13 @@ type UserFiles = {
   }[]
 }
 
+// Add this type to the existing types
+type ProfileDescriptions = Record<string, string>
+
+// Cache configuration
+const CACHE_EXPIRY = 5 * 60 * 1000 // 5 minutes in milliseconds
+const BATCH_SIZE = 3 // Number of profiles to process in each batch
+
 // Add this at the top of the component
 const MAX_RETRIES = 3
 const RETRY_DELAY = 1000 // 1 second
@@ -227,9 +224,28 @@ export default function DesktopPage() {
   const [refreshing, setRefreshing] = useState(false)
   const [userFiles, setUserFiles] = useState<Record<string, UserFiles>>({})
   const [apiError, setApiError] = useState<string | null>(null)
+  const [loadingProgress, setLoadingProgress] = useState(0)
   const audioRef = useRef<HTMLAudioElement | null>(null)
   const router = useRouter()
   const supabase = getSupabaseBrowser()
+
+  // Add these state variables inside the DesktopPage component, near the other state variables
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false)
+  const [settingsPosition, setSettingsPosition] = useState({ x: 100, y: 100 })
+  const [volume, setVolume] = useState(0.2) // Default volume
+
+  // Add this state variable with the other state variables
+  const [profileDescriptions, setProfileDescriptions] = useState<ProfileDescriptions>({})
+
+  const cacheRef = useRef<Map<string, { data: any; timestamp: number }>>(new Map())
+
+  // Add this function inside the DesktopPage component
+  const handleVolumeChange = (newVolume: number) => {
+    setVolume(newVolume)
+    if (audioRef.current) {
+      audioRef.current.volume = newVolume
+    }
+  }
 
   // Add this function to the desktop page component
   const handleApiError = (error: any) => {
@@ -253,127 +269,161 @@ export default function DesktopPage() {
     setApiError(null)
   }
 
-  // Replace the fetchAllUserFiles function with this improved version
-  const fetchAllUserFiles = async (retryCount = 0) => {
-    setRefreshing(true)
-    setApiError(null)
+  // Function to fetch data for a single profile
+  const fetchProfileData = useCallback(async (userId: string): Promise<any> => {
+    // Check if we have cached data that's still valid
+    const cachedData = cacheRef.current.get(userId)
+    const now = Date.now()
+
+    if (cachedData && now - cachedData.timestamp < CACHE_EXPIRY) {
+      console.log(`Using cached data for user ${userId}`)
+      return cachedData.data
+    }
 
     try {
-      // Fetch files for each profile
-      const newProfileImages: Record<string, string> = {}
-      const newBackgroundImages: Record<string, string> = {}
-      const newProfileSongs: Record<string, string> = {}
-      const newUserFiles: Record<string, UserFiles> = {}
+      // Import dynamically to reduce initial load time
+      const { getApiBaseUrl } = await import("@/lib/api-client")
+      const baseUrl = getApiBaseUrl()
 
-      // Set default profile images for all profiles as a fallback
-      profiles.forEach((profile) => {
-        newProfileImages[profile.id] = DEFAULT_PROFILE_PIC
+      // Use GET request with userId as a query parameter
+      const response = await fetch(`${baseUrl}/api/user-files?userId=${encodeURIComponent(userId)}`, {
+        method: "GET",
+        headers: {
+          "Content-Type": "application/json",
+        },
+      }).catch(async () => {
+        // Try the fallback API on Vercel
+        return await fetch(`${baseUrl}/api/fallback`, {
+          method: "GET",
+        }).catch(() => {
+          throw new Error("API request failed")
+        })
       })
 
-      for (const profile of profiles) {
-        try {
-          console.log(`Fetching files for user: ${profile.id}`)
-
-          // Always use GET requests since we're on GitHub Pages which doesn't support POST
-          const data = await apiRequest(`/api/user-files?userId=${profile.id}`, {
-            method: "GET",
-          }).catch(async (error) => {
-            console.log(`GET request failed for user ${profile.id}, trying fallback API...`)
-
-            // Try the fallback API on Vercel
-            return await apiRequest(`/api/fallback`, {
-              method: "GET",
-            }).catch((error) => {
-              console.log(`Fallback API also failed for user ${profile.id}, using default...`)
-              // Return a minimal fallback response
-              return {
-                success: true,
-                files: {
-                  "profile-picture": [],
-                  backgrounds: [],
-                  songs: [],
-                },
-              }
-            })
-          })
-
-          if (data.success && data.files) {
-            newUserFiles[profile.id] = data.files
-
-            // Extract profile picture
-            if (data.files["profile-picture"] && data.files["profile-picture"].length > 0) {
-              // Find a file that starts with "pic."
-              const picFile = data.files["profile-picture"].find((file: any) => file.name.startsWith("pic."))
-
-              if (picFile) {
-                newProfileImages[profile.id] = picFile.publicUrl
-              }
-            }
-
-            // Extract background image
-            if (data.files["backgrounds"] && data.files["backgrounds"].length > 0) {
-              // Find a file that starts with "bg."
-              const bgFile = data.files["backgrounds"].find((file: any) => file.name.startsWith("bg."))
-
-              if (bgFile) {
-                newBackgroundImages[profile.id] = bgFile.publicUrl
-              }
-            }
-
-            // Extract song file
-            if (data.files["songs"] && data.files["songs"].length > 0) {
-              // Find any song file (they should start with "song.")
-              const songFile = data.files["songs"].find((file: any) => file.name.startsWith("song"))
-
-              if (songFile) {
-                newProfileSongs[profile.id] = songFile.publicUrl
-
-                // If this is the currently selected profile, update the audio player
-                if (selectedProfile && profile.id === selectedProfile.id) {
-                  setCurrentSongName(songFile.name.replace(/^song-/, "").replace(/\.[^/.]+$/, ""))
-
-                  // If we already have an audio element, update its source
-                  if (audioRef.current) {
-                    audioRef.current.src = songFile.publicUrl
-                    if (isPlaying) {
-                      audioRef.current.play().catch((err) => console.log("Could not autoplay:", err))
-                    }
-                  } else {
-                    // Create a new audio element
-                    const audio = new Audio(songFile.publicUrl)
-                    audio.volume = 0.2
-                    audioRef.current = audio
-                    if (isPlaying) {
-                      audio.play().catch((err) => console.log("Could not autoplay:", err))
-                    }
-                  }
-                }
-              }
-            }
-          }
-        } catch (error) {
-          console.error(`Error fetching files for user ${profile.id}:`, error)
-          // Continue with the next profile instead of breaking the entire loop
-        }
+      if (!response.ok) {
+        throw new Error(`Error fetching files: ${response.statusText}`)
       }
 
-      // Update state with all fetched files
-      setUserFiles(newUserFiles)
-      setProfileImages((prevImages) => ({ ...prevImages, ...newProfileImages }))
-      setBackgroundImages((prevBgs) => ({ ...prevBgs, ...newBackgroundImages }))
-      setProfileSongs((prevSongs) => ({ ...prevSongs, ...newProfileSongs }))
+      const data = await response.json()
 
-      // Auto-play song for the initially selected profile
-      if (selectedProfile && newProfileSongs[selectedProfile.id]) {
+      // Cache the result
+      if (data.success) {
+        cacheRef.current.set(userId, { data, timestamp: now })
+      }
+
+      return data
+    } catch (error) {
+      console.error(`Error fetching files for user ${userId}:`, error)
+      throw error
+    }
+  }, [])
+
+  // Process profile data and update state
+  const processProfileData = useCallback((userId: string, data: any) => {
+    if (!data.success || !data.files) return
+
+    // Update userFiles state
+    setUserFiles((prev) => ({ ...prev, [userId]: data.files }))
+
+    // Extract profile picture
+    if (data.files["profile-picture"] && data.files["profile-picture"].length > 0) {
+      const picFile = data.files["profile-picture"].find((file: any) => file.name.startsWith("pic."))
+      if (picFile) {
+        setProfileImages((prev) => ({ ...prev, [userId]: picFile.publicUrl }))
+      }
+    }
+
+    // Extract background image
+    if (data.files["backgrounds"] && data.files["backgrounds"].length > 0) {
+      const bgFile = data.files["backgrounds"].find((file: any) => file.name.startsWith("bg."))
+      if (bgFile) {
+        setBackgroundImages((prev) => ({ ...prev, [userId]: bgFile.publicUrl }))
+      }
+    }
+
+    // Extract song file
+    if (data.files["songs"] && data.files["songs"].length > 0) {
+      const songFile = data.files["songs"].find((file: any) => file.name.startsWith("song"))
+      if (songFile) {
+        setProfileSongs((prev) => ({ ...prev, [userId]: songFile.publicUrl }))
+      }
+    }
+
+    // Extract description file
+    if (data.files["descriptions"] && data.files["descriptions"].length > 0) {
+      const bioFile = data.files["descriptions"].find((file: any) => file.name === "bio.txt")
+      if (bioFile) {
+        fetch(bioFile.publicUrl)
+          .then((response) => {
+            if (response.ok) return response.text()
+            return ""
+          })
+          .then((bioText) => {
+            setProfileDescriptions((prev) => ({ ...prev, [userId]: bioText }))
+          })
+          .catch((error) => {
+            console.error(`Error fetching bio text for ${userId}:`, error)
+          })
+      }
+    }
+  }, [])
+
+  // Efficient batch loading of all profiles
+  const fetchAllUserFiles = useCallback(async () => {
+    setRefreshing(true)
+    setApiError(null)
+    setLoadingProgress(0)
+
+    try {
+      // Set default profile images for all profiles as a fallback
+      const defaultProfileImages: Record<string, string> = {}
+      profiles.forEach((profile) => {
+        defaultProfileImages[profile.id] = DEFAULT_PROFILE_PIC
+      })
+      setProfileImages((prev) => ({ ...prev, ...defaultProfileImages }))
+
+      // Process profiles in batches to avoid memory spikes
+      const totalProfiles = profiles.length
+      let processedCount = 0
+
+      // Create a copy of profiles array to avoid mutation issues
+      const profilesArray = [...profiles]
+
+      // Process profiles in batches
+      for (let i = 0; i < profilesArray.length; i += BATCH_SIZE) {
+        const batch = profilesArray.slice(i, i + BATCH_SIZE)
+
+        // Process batch in parallel
+        await Promise.all(
+          batch.map(async (profile) => {
+            try {
+              const data = await fetchProfileData(profile.id)
+              processProfileData(profile.id, data)
+            } catch (error) {
+              console.error(`Error processing profile ${profile.id}:`, error)
+              // Continue with other profiles
+            } finally {
+              processedCount++
+              setLoadingProgress(Math.floor((processedCount / totalProfiles) * 100))
+            }
+          }),
+        )
+
+        // Small delay between batches to allow UI to breathe
+        await new Promise((resolve) => setTimeout(resolve, 50))
+      }
+
+      // Setup audio for selected profile if available
+      if (selectedProfile && profileSongs[selectedProfile.id]) {
         if (!audioRef.current) {
-          const audio = new Audio(newProfileSongs[selectedProfile.id])
-          audio.volume = 0.2
+          const audio = new Audio(profileSongs[selectedProfile.id])
+          audio.volume = volume
           audioRef.current = audio
 
           // Get the song name
-          if (newUserFiles[selectedProfile.id] && newUserFiles[selectedProfile.id]["songs"]) {
-            const songFile = newUserFiles[selectedProfile.id]["songs"].find(
-              (file) => file.publicUrl === newProfileSongs[selectedProfile.id],
+          if (userFiles[selectedProfile.id] && userFiles[selectedProfile.id]["songs"]) {
+            const songFile = userFiles[selectedProfile.id]["songs"].find(
+              (file) => file.publicUrl === profileSongs[selectedProfile.id],
             )
             if (songFile) {
               setCurrentSongName(songFile.name.replace(/^song-/, "").replace(/\.[^/.]+$/, ""))
@@ -386,34 +436,20 @@ export default function DesktopPage() {
       }
     } catch (error: any) {
       console.error("Error fetching user files:", error)
-
-      // Implement retry logic
-      if (retryCount < MAX_RETRIES) {
-        console.log(`Retrying fetchAllUserFiles (${retryCount + 1}/${MAX_RETRIES})...`)
-        setTimeout(
-          () => {
-            fetchAllUserFiles(retryCount + 1).catch((error) => {
-              console.error(`Retry ${retryCount + 1} failed:`, error)
-            })
-          },
-          RETRY_DELAY * (retryCount + 1),
-        )
-      } else {
-        // If all retries fail, use default profiles
-        handleApiError(error)
-      }
+      handleApiError(error)
     } finally {
       setRefreshing(false)
+      setLoadingProgress(100)
     }
-  }
+  }, [profiles, selectedProfile, volume, fetchProfileData, processProfileData])
 
-  // Initial fetch of user files
+  // Initial fetch of all user files
   useEffect(() => {
     fetchAllUserFiles().catch((error) => {
       console.error("Failed to fetch user files:", error)
       handleApiError(error)
     })
-  }, [])
+  }, [fetchAllUserFiles])
 
   // Clock update
   useEffect(() => {
@@ -451,6 +487,7 @@ export default function DesktopPage() {
     })
   }
 
+  // Update the handleProfileSelect function to also set the description
   const handleProfileSelect = (profile: typeof selectedProfile) => {
     setSelectedProfile(profile)
 
@@ -477,13 +514,11 @@ export default function DesktopPage() {
           }
         }
 
-        // Replace this conditional with automatic playing
         audioRef.current.play().catch((err) => console.log("Could not autoplay:", err))
         setIsPlaying(true)
       } else {
-        // Create a new audio element
         const audio = new Audio(profileSongs[profile.id])
-        audio.volume = 0.2
+        audio.volume = volume
         audioRef.current = audio
 
         // Get the song name from userFiles
@@ -494,7 +529,6 @@ export default function DesktopPage() {
           }
         }
 
-        // Replace this conditional with automatic playing
         audio.play().catch((err) => console.log("Could not autoplay:", err))
         setIsPlaying(true)
       }
@@ -509,8 +543,14 @@ export default function DesktopPage() {
     }
   }
 
+  // Modify the handleAdminClick function to:
   const handleAdminClick = () => {
     router.push("/admin/dashboard")
+  }
+
+  // Add this function to toggle the settings window
+  const toggleSettings = () => {
+    setIsSettingsOpen(!isSettingsOpen)
   }
 
   const handleSocialClick = (url: string | null) => {
@@ -530,7 +570,7 @@ export default function DesktopPage() {
   }
 
   // Get current background for the selected profile
-  const currentBackground = getBackgroundImageUrl(selectedProfile?.id)
+  const currentBackground = selectedProfile ? getBackgroundImageUrl(selectedProfile.id) : null
 
   // Toggle play/pause
   const togglePlayPause = () => {
@@ -560,6 +600,22 @@ export default function DesktopPage() {
           <button onClick={dismissError} className="text-white hover:text-red-300">
             &times;
           </button>
+        </div>
+      )}
+
+      {/* Loading progress indicator */}
+      {refreshing && (
+        <div className="fixed top-4 left-1/2 transform -translate-x-1/2 z-50 bg-black/80 text-white px-4 py-3 rounded-md shadow-lg">
+          <div className="flex items-center">
+            <div className="mr-3">Loading profiles...</div>
+            <div className="w-32 h-2 bg-gray-700 rounded-full overflow-hidden">
+              <div
+                className="h-full bg-yellow-500 transition-all duration-300"
+                style={{ width: `${loadingProgress}%` }}
+              ></div>
+            </div>
+            <div className="ml-2 text-xs">{loadingProgress}%</div>
+          </div>
         </div>
       )}
 
@@ -614,7 +670,7 @@ export default function DesktopPage() {
                 onClick={fetchAllUserFiles}
                 disabled={refreshing}
                 className="text-yellow-500 hover:text-yellow-400 flex items-center"
-                title="Refresh Images"
+                title="Refresh Profiles"
               >
                 <RefreshCw className={`h-5 w-5 ${refreshing ? "animate-spin" : ""}`} />
               </button>
@@ -635,11 +691,17 @@ export default function DesktopPage() {
             <Folder className="text-yellow-500 w-8 h-8" />
             <span className="text-xs mt-1">Pictures</span>
           </div>
-          <div className="flex flex-col items-center">
+          <div
+            className="flex flex-col items-center cursor-pointer transform transition-transform hover:scale-110 hover:text-yellow-400"
+            onClick={() => window.open("https://twitch.tv/team/bat", "_blank", "noopener,noreferrer")}
+          >
             <User className="text-purple-500 w-8 h-8" />
-            <span className="text-xs mt-1">Profiles</span>
+            <span className="text-xs mt-1">Team</span>
           </div>
-          <div className="flex flex-col items-center">
+          <div
+            className="flex flex-col items-center cursor-pointer transform transition-transform hover:scale-110 hover:text-yellow-400"
+            onClick={toggleSettings}
+          >
             <Settings className="text-gray-400 w-8 h-8" />
             <span className="text-xs mt-1">Settings</span>
           </div>
@@ -663,7 +725,7 @@ export default function DesktopPage() {
             <div className="flex flex-col items-center mb-6">
               <div className="w-20 h-20 rounded-full overflow-hidden mb-4 border-2 border-yellow-500/50">
                 <Image
-                  src={getProfileImageUrl(selectedProfile?.id) || "/placeholder.svg"}
+                  src={selectedProfile ? getProfileImageUrl(selectedProfile.id) : DEFAULT_PROFILE_PIC}
                   alt={selectedProfile?.username || "User"}
                   width={80}
                   height={80}
@@ -676,8 +738,10 @@ export default function DesktopPage() {
               </h2>
             </div>
 
-            {/* Description */}
-            <p className="text-gray-300 mb-8 text-lg">{selectedProfile?.description}</p>
+            {/* Description - Updated to use the file content */}
+            <p className="text-gray-300 mb-8 text-lg">
+              {selectedProfile ? profileDescriptions[selectedProfile.id] || selectedProfile.description || "" : ""}
+            </p>
 
             {/* Social Media Buttons - Centered */}
             <div className="flex justify-center space-x-4 mb-6">
@@ -744,7 +808,7 @@ export default function DesktopPage() {
             <div className="px-4 flex items-center">
               <div className="w-6 h-6 rounded-full overflow-hidden mr-2">
                 <Image
-                  src={getProfileImageUrl(selectedProfile?.id) || "/placeholder.svg"}
+                  src={selectedProfile ? getProfileImageUrl(selectedProfile.id) : DEFAULT_PROFILE_PIC}
                   alt={selectedProfile?.username || "User"}
                   width={24}
                   height={24}
@@ -757,6 +821,15 @@ export default function DesktopPage() {
           </div>
         </div>
       </div>
+      <SettingsWindow
+        isOpen={isSettingsOpen}
+        onClose={() => setIsSettingsOpen(false)}
+        initialPosition={settingsPosition}
+        volume={volume}
+        isMuted={isMuted}
+        onVolumeChange={handleVolumeChange}
+        onMuteToggle={toggleMute}
+      />
     </div>
   )
 }

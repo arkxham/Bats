@@ -1,11 +1,60 @@
+// Use a LRU cache with limited size to prevent memory leaks
+class LRUCache<K, V> {
+  private capacity: number
+  private cache: Map<K, V>
+
+  constructor(capacity: number) {
+    this.capacity = capacity
+    this.cache = new Map()
+  }
+
+  get(key: K): V | undefined {
+    if (!this.cache.has(key)) return undefined
+
+    // Get the value and refresh its position in the cache
+    const value = this.cache.get(key)
+    this.cache.delete(key)
+    this.cache.set(key, value!)
+    return value
+  }
+
+  put(key: K, value: V): void {
+    // Remove the key if it exists to refresh its position
+    if (this.cache.has(key)) {
+      this.cache.delete(key)
+    }
+    // Evict the least recently used item if we're at capacity
+    else if (this.cache.size >= this.capacity) {
+      const firstKey = this.cache.keys().next().value
+      this.cache.delete(firstKey)
+    }
+
+    this.cache.set(key, value)
+  }
+
+  clear(): void {
+    this.cache.clear()
+  }
+
+  has(key: K): boolean {
+    return this.cache.has(key)
+  }
+
+  delete(key: K): boolean {
+    return this.cache.delete(key)
+  }
+
+  forEach(callbackfn: (value: V, key: K) => void): void {
+    this.cache.forEach(callbackfn)
+  }
+}
+
+// Cache for API responses - limit to 20 entries to prevent memory bloat
+const apiCache = new LRUCache<string, { data: any; timestamp: number }>(20)
+const CACHE_EXPIRY = 5 * 60 * 1000 // 5 minutes
+
 // Get the base API URL based on the environment
 export function getApiBaseUrl() {
-  console.log("Environment variables:", {
-    NODE_ENV: process.env.NODE_ENV,
-    NEXT_PUBLIC_SERVERLESS_API_URL: process.env.NEXT_PUBLIC_SERVERLESS_API_URL,
-    NEXT_PUBLIC_VERCEL_URL: process.env.NEXT_PUBLIC_VERCEL_URL,
-  })
-
   // Check if we're on the custom domain (bats.rip)
   const isCustomDomain =
     typeof window !== "undefined" &&
@@ -13,7 +62,6 @@ export function getApiBaseUrl() {
 
   // If on custom domain, ALWAYS use the Vercel deployment URL for API calls
   if (isCustomDomain) {
-    console.log("On bats.rip domain - using Vercel URL for API calls")
     return "https://v0-custom-website-design-lyart.vercel.app"
   }
 
@@ -23,13 +71,11 @@ export function getApiBaseUrl() {
     process.env.NEXT_PUBLIC_SERVERLESS_API_URL &&
     !process.env.NEXT_PUBLIC_SERVERLESS_API_URL.includes("supabase.co")
   ) {
-    console.log(`Using NEXT_PUBLIC_SERVERLESS_API_URL: ${process.env.NEXT_PUBLIC_SERVERLESS_API_URL}`)
     return process.env.NEXT_PUBLIC_SERVERLESS_API_URL
   }
 
   // In development, use relative URLs
   if (process.env.NODE_ENV === "development") {
-    console.log("Using relative URL (empty string) for development")
     return ""
   }
 
@@ -41,20 +87,24 @@ export function getApiBaseUrl() {
         ? `https://${process.env.NEXT_PUBLIC_VERCEL_URL}`
         : "https://v0-custom-website-design-lyart.vercel.app"
 
-  console.log(`Using determined base URL: ${baseUrl}`)
   return baseUrl
 }
 
-// Helper function to make API requests
+// Helper function to make API requests with caching
 export async function apiRequest(endpoint: string, options: RequestInit = {}) {
   const baseUrl = getApiBaseUrl()
   const url = `${baseUrl}${endpoint.startsWith("/") ? endpoint : `/${endpoint}`}`
 
-  console.log(`Making API request to: ${url}`, {
-    method: options.method || "GET",
-    headers: options.headers,
-    body: options.body ? "(body present)" : "(no body)",
-  })
+  // Generate cache key based on URL and request method
+  const cacheKey = `${options.method || "GET"}-${url}-${JSON.stringify(options.body || {})}`
+
+  // Check cache first
+  const cachedResponse = apiCache.get(cacheKey)
+  const now = Date.now()
+
+  if (cachedResponse && now - cachedResponse.timestamp < CACHE_EXPIRY) {
+    return cachedResponse.data
+  }
 
   try {
     const response = await fetch(url, {
@@ -65,19 +115,17 @@ export async function apiRequest(endpoint: string, options: RequestInit = {}) {
       },
     })
 
-    console.log(`API response status: ${response.status} ${response.statusText}`)
-
     if (!response.ok) {
-      const errorText = await response.text().catch(() => "No error details available")
-      console.error(`API request failed: ${response.status} ${response.statusText}`, errorText)
       throw new Error(`API request failed: ${response.status} ${response.statusText}`)
     }
 
     const data = await response.json()
-    console.log("API response data:", data)
+
+    // Cache the response
+    apiCache.put(cacheKey, { data, timestamp: now })
+
     return data
   } catch (error) {
-    console.error(`API request error for ${url}:`, error)
     throw error
   }
 }
@@ -85,7 +133,6 @@ export async function apiRequest(endpoint: string, options: RequestInit = {}) {
 // Direct test function for API connectivity
 export async function testApiConnectivity() {
   const baseUrl = getApiBaseUrl()
-  console.log(`Testing API connectivity to: ${baseUrl}/api/test`)
 
   try {
     const response = await fetch(`${baseUrl}/api/test`, {
@@ -95,11 +142,8 @@ export async function testApiConnectivity() {
       },
     })
 
-    console.log(`Test API response status: ${response.status} ${response.statusText}`)
-
     if (!response.ok) {
       const errorText = await response.text().catch(() => "No error details available")
-      console.error("Test API request failed:", errorText)
       return {
         success: false,
         status: response.status,
@@ -109,7 +153,6 @@ export async function testApiConnectivity() {
     }
 
     const data = await response.json()
-    console.log("Test API response data:", data)
 
     return {
       success: true,
@@ -117,10 +160,27 @@ export async function testApiConnectivity() {
       data,
     }
   } catch (error) {
-    console.error("Test API connectivity error:", error)
     return {
       success: false,
       error: error instanceof Error ? error.message : "Unknown error",
     }
+  }
+}
+
+// Clear cache for specific endpoint or all endpoints
+export function clearApiCache(endpoint?: string) {
+  if (endpoint) {
+    const baseUrl = getApiBaseUrl()
+    const url = `${baseUrl}${endpoint.startsWith("/") ? endpoint : `/${endpoint}`}`
+
+    // Clear all entries matching this endpoint
+    apiCache.forEach((value, key) => {
+      if (key.includes(url)) {
+        apiCache.delete(key)
+      }
+    })
+  } else {
+    // Clear entire cache
+    apiCache.clear()
   }
 }
