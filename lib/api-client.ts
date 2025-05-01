@@ -1,56 +1,5 @@
-// Use a LRU cache with limited size to prevent memory leaks
-class LRUCache<K, V> {
-  private capacity: number
-  private cache: Map<K, V>
-
-  constructor(capacity: number) {
-    this.capacity = capacity
-    this.cache = new Map()
-  }
-
-  get(key: K): V | undefined {
-    if (!this.cache.has(key)) return undefined
-
-    // Get the value and refresh its position in the cache
-    const value = this.cache.get(key)
-    this.cache.delete(key)
-    this.cache.set(key, value!)
-    return value
-  }
-
-  put(key: K, value: V): void {
-    // Remove the key if it exists to refresh its position
-    if (this.cache.has(key)) {
-      this.cache.delete(key)
-    }
-    // Evict the least recently used item if we're at capacity
-    else if (this.cache.size >= this.capacity) {
-      const firstKey = this.cache.keys().next().value
-      this.cache.delete(firstKey)
-    }
-
-    this.cache.set(key, value)
-  }
-
-  clear(): void {
-    this.cache.clear()
-  }
-
-  has(key: K): boolean {
-    return this.cache.has(key)
-  }
-
-  delete(key: K): boolean {
-    return this.cache.delete(key)
-  }
-
-  forEach(callbackfn: (value: V, key: K) => void): void {
-    this.cache.forEach(callbackfn)
-  }
-}
-
-// Cache for API responses - limit to 20 entries to prevent memory bloat
-const apiCache = new LRUCache<string, { data: any; timestamp: number }>(20)
+// Cache for API responses
+const apiCache = new Map<string, { data: any; timestamp: number }>()
 const CACHE_EXPIRY = 5 * 60 * 1000 // 5 minutes
 
 // Get the base API URL based on the environment
@@ -122,7 +71,7 @@ export async function apiRequest(endpoint: string, options: RequestInit = {}) {
     const data = await response.json()
 
     // Cache the response
-    apiCache.put(cacheKey, { data, timestamp: now })
+    apiCache.set(cacheKey, { data, timestamp: now })
 
     return data
   } catch (error) {

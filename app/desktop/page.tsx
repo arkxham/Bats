@@ -54,7 +54,18 @@ const initialProfiles = [
     github_url: "https://github.com/80dropz",
     steam_url: "https://steamcommunity.com/id/trystin/",
   },
-  // Scorpy removed from the list
+  {
+    id: "18d38ba4-f85f-4763-98a2-d433b2b46344",
+    username: "Scorpy",
+    display_name: "Scorpy",
+    avatar_url: null,
+    background_image: null,
+    description: "",
+    twitter_url: "https://twitter.com/ScorpyL2",
+    twitch_url: "https://twitch.tv/ScorpyL2",
+    github_url: "https://github.com/80dropz",
+    steam_url: "https://steamcommunity.com/id/scorpy/",
+  },
   {
     id: "7306d120-20c9-4db9-8673-91402084f42e",
     username: "Gekk",
@@ -204,7 +215,7 @@ type ProfileDescriptions = Record<string, string>
 
 // Cache configuration
 const CACHE_EXPIRY = 5 * 60 * 1000 // 5 minutes in milliseconds
-const BATCH_SIZE = 3 // Number of profiles to process in each batch
+const FETCH_DEBOUNCE = 300 // 300ms debounce for fetching
 
 // Add this at the top of the component
 const MAX_RETRIES = 3
@@ -212,9 +223,8 @@ const RETRY_DELAY = 1000 // 1 second
 const SUPABASE_URL = "https://cgggsudeipsyfcszouil.supabase.co"
 
 export default function DesktopPage() {
-  // Use client-side only state initialization to avoid hydration errors
-  const [profiles] = useState(initialProfiles)
-  const [selectedProfile, setSelectedProfile] = useState<(typeof initialProfiles)[0] | null>(null)
+  const [profiles, setProfiles] = useState(initialProfiles)
+  const [selectedProfile, setSelectedProfile] = useState(initialProfiles[0])
   const [currentTime, setCurrentTime] = useState(new Date())
   const [isPlaying, setIsPlaying] = useState(false)
   const [isMuted, setIsMuted] = useState(false)
@@ -225,8 +235,6 @@ export default function DesktopPage() {
   const [refreshing, setRefreshing] = useState(false)
   const [userFiles, setUserFiles] = useState<Record<string, UserFiles>>({})
   const [apiError, setApiError] = useState<string | null>(null)
-  const [loadingProgress, setLoadingProgress] = useState(0)
-  const [isLoaded, setIsLoaded] = useState(false)
   const audioRef = useRef<HTMLAudioElement | null>(null)
   const router = useRouter()
   const supabase = getSupabaseBrowser()
@@ -238,14 +246,12 @@ export default function DesktopPage() {
 
   // Add this state variable with the other state variables
   const [profileDescriptions, setProfileDescriptions] = useState<ProfileDescriptions>({})
+  const [loadedProfiles, setLoadedProfiles] = useState<Set<string>>(new Set())
+  const [fetchQueue, setFetchQueue] = useState<string[]>([])
+  const [isFetching, setIsFetching] = useState(false)
 
   const cacheRef = useRef<Map<string, { data: any; timestamp: number }>>(new Map())
-
-  // Initialize selected profile after component mounts to avoid hydration errors
-  useEffect(() => {
-    setSelectedProfile(initialProfiles[0])
-    setIsLoaded(true)
-  }, [])
+  const debounceTimerRef = useRef<NodeJS.Timeout | null>(null)
 
   // Add this function inside the DesktopPage component
   const handleVolumeChange = (newVolume: number) => {
@@ -277,8 +283,8 @@ export default function DesktopPage() {
     setApiError(null)
   }
 
-  // Function to fetch data for a single profile
-  const fetchProfileData = useCallback(async (userId: string): Promise<any> => {
+  // Replace the fetchAllUserFiles function with this improved version that always uses GET
+  const getCachedOrFetch = useCallback(async (userId: string): Promise<any> => {
     // Check if we have cached data that's still valid
     const cachedData = cacheRef.current.get(userId)
     const now = Date.now()
@@ -289,21 +295,26 @@ export default function DesktopPage() {
     }
 
     try {
+      console.log(`Fetching files for user: ${userId}`)
+
       // Import dynamically to reduce initial load time
       const { getApiBaseUrl } = await import("@/lib/api-client")
       const baseUrl = getApiBaseUrl()
 
       // Use GET request with userId as a query parameter
-      const response = await fetch(`${baseUrl}/api/fallback`, {
+      const response = await fetch(`${baseUrl}/api/user-files?userId=${encodeURIComponent(userId)}`, {
         method: "GET",
         headers: {
           "Content-Type": "application/json",
         },
       }).catch(async () => {
+        console.log(`GET request failed for user ${userId}, trying fallback API...`)
+
         // Try the fallback API on Vercel
         return await fetch(`${baseUrl}/api/fallback`, {
           method: "GET",
         }).catch(() => {
+          console.log(`Fallback API also failed for user ${userId}, using default...`)
           throw new Error("API request failed")
         })
       })
@@ -326,140 +337,148 @@ export default function DesktopPage() {
     }
   }, [])
 
-  // Process profile data and update state
-  const processProfileData = useCallback((userId: string, data: any) => {
-    if (!data.success || !data.files) return
+  // Process the fetch queue one by one
+  const processFetchQueue = useCallback(async () => {
+    if (isFetching || fetchQueue.length === 0) return
 
-    // Update userFiles state
-    setUserFiles((prev) => ({ ...prev, [userId]: data.files }))
-
-    // Extract profile picture
-    if (data.files["profile-picture"] && data.files["profile-picture"].length > 0) {
-      const picFile = data.files["profile-picture"].find((file: any) => file.name.startsWith("pic."))
-      if (picFile) {
-        setProfileImages((prev) => ({ ...prev, [userId]: picFile.publicUrl }))
-      }
-    }
-
-    // Extract background image
-    if (data.files["backgrounds"] && data.files["backgrounds"].length > 0) {
-      const bgFile = data.files["backgrounds"].find((file: any) => file.name.startsWith("bg."))
-      if (bgFile) {
-        setBackgroundImages((prev) => ({ ...prev, [userId]: bgFile.publicUrl }))
-      }
-    }
-
-    // Extract song file
-    if (data.files["songs"] && data.files["songs"].length > 0) {
-      const songFile = data.files["songs"].find((file: any) => file.name.startsWith("song"))
-      if (songFile) {
-        setProfileSongs((prev) => ({ ...prev, [userId]: songFile.publicUrl }))
-      }
-    }
-
-    // Extract description file
-    if (data.files["descriptions"] && data.files["descriptions"].length > 0) {
-      const bioFile = data.files["descriptions"].find((file: any) => file.name === "bio.txt")
-      if (bioFile) {
-        fetch(bioFile.publicUrl)
-          .then((response) => {
-            if (response.ok) return response.text()
-            return ""
-          })
-          .then((bioText) => {
-            setProfileDescriptions((prev) => ({ ...prev, [userId]: bioText }))
-          })
-          .catch((error) => {
-            console.error(`Error fetching bio text for ${userId}:`, error)
-          })
-      }
-    }
-  }, [])
-
-  // Efficient batch loading of all profiles
-  const fetchAllUserFiles = useCallback(async () => {
-    setRefreshing(true)
-    setApiError(null)
-    setLoadingProgress(0)
+    setIsFetching(true)
+    const userId = fetchQueue[0]
 
     try {
-      // Set default profile images for all profiles as a fallback
-      const defaultProfileImages: Record<string, string> = {}
-      profiles.forEach((profile) => {
-        defaultProfileImages[profile.id] = DEFAULT_PROFILE_PIC
-      })
-      setProfileImages((prev) => ({ ...prev, ...defaultProfileImages }))
-
-      // Process profiles in batches to avoid memory spikes
-      const totalProfiles = profiles.length
-      let processedCount = 0
-
-      // Create a copy of profiles array to avoid mutation issues
-      const profilesArray = [...profiles]
-
-      // Process profiles in batches
-      for (let i = 0; i < profilesArray.length; i += BATCH_SIZE) {
-        const batch = profilesArray.slice(i, i + BATCH_SIZE)
-
-        // Process batch in parallel
-        await Promise.all(
-          batch.map(async (profile) => {
-            try {
-              const data = await fetchProfileData(profile.id)
-              processProfileData(profile.id, data)
-            } catch (error) {
-              console.error(`Error processing profile ${profile.id}:`, error)
-              // Continue with other profiles
-            } finally {
-              processedCount++
-              setLoadingProgress(Math.floor((processedCount / totalProfiles) * 100))
-            }
-          }),
-        )
-
-        // Small delay between batches to allow UI to breathe
-        await new Promise((resolve) => setTimeout(resolve, 50))
+      // Skip if already loaded
+      if (loadedProfiles.has(userId)) {
+        setFetchQueue((prev) => prev.slice(1))
+        setIsFetching(false)
+        return
       }
 
-      // Setup audio for selected profile if available
-      if (selectedProfile && profileSongs[selectedProfile.id]) {
-        if (!audioRef.current) {
-          const audio = new Audio(profileSongs[selectedProfile.id])
-          audio.volume = volume
-          audioRef.current = audio
+      const data = await getCachedOrFetch(userId)
 
-          // Get the song name
-          if (userFiles[selectedProfile.id] && userFiles[selectedProfile.id]["songs"]) {
-            const songFile = userFiles[selectedProfile.id]["songs"].find(
-              (file) => file.publicUrl === profileSongs[selectedProfile.id],
-            )
-            if (songFile) {
+      if (data.success && data.files) {
+        // Update state with fetched data
+        setUserFiles((prev) => ({ ...prev, [userId]: data.files }))
+
+        // Extract profile picture
+        if (data.files["profile-picture"] && data.files["profile-picture"].length > 0) {
+          const picFile = data.files["profile-picture"].find((file: any) => file.name.startsWith("pic."))
+
+          if (picFile) {
+            setProfileImages((prev) => ({ ...prev, [userId]: picFile.publicUrl }))
+          }
+        }
+
+        // Extract background image
+        if (data.files["backgrounds"] && data.files["backgrounds"].length > 0) {
+          const bgFile = data.files["backgrounds"].find((file: any) => file.name.startsWith("bg."))
+
+          if (bgFile) {
+            setBackgroundImages((prev) => ({ ...prev, [userId]: bgFile.publicUrl }))
+          }
+        }
+
+        // Extract song file
+        if (data.files["songs"] && data.files["songs"].length > 0) {
+          const songFile = data.files["songs"].find((file: any) => file.name.startsWith("song"))
+
+          if (songFile) {
+            setProfileSongs((prev) => ({ ...prev, [userId]: songFile.publicUrl }))
+
+            // If this is the currently selected profile, update the audio player
+            if (selectedProfile && userId === selectedProfile.id) {
               setCurrentSongName(songFile.name.replace(/^song-/, "").replace(/\.[^/.]+$/, ""))
+
+              if (audioRef.current) {
+                audioRef.current.src = songFile.publicUrl
+                if (isPlaying) {
+                  audioRef.current.play().catch(() => {})
+                }
+              } else {
+                const audio = new Audio(songFile.publicUrl)
+                audio.volume = volume
+                audioRef.current = audio
+
+                if (isPlaying) {
+                  audio.play().catch(() => {})
+                }
+              }
             }
           }
+        }
 
-          audio.play().catch((err) => console.log("Could not autoplay:", err))
-          setIsPlaying(true)
+        // Extract description file
+        if (data.files["descriptions"] && data.files["descriptions"].length > 0) {
+          const bioFile = data.files["descriptions"].find((file: any) => file.name === "bio.txt")
+
+          if (bioFile) {
+            try {
+              const response = await fetch(bioFile.publicUrl)
+              if (response.ok) {
+                const bioText = await response.text()
+                setProfileDescriptions((prev) => ({ ...prev, [userId]: bioText }))
+              }
+            } catch (error) {
+              console.error(`Error fetching bio text for ${userId}:`, error)
+            }
+          }
+        }
+
+        // Mark as loaded
+        setLoadedProfiles((prev) => new Set(prev).add(userId))
+      }
+    } catch (error) {
+      console.error(`Error processing fetch for user ${userId}:`, error)
+    } finally {
+      // Remove from queue and continue processing
+      setFetchQueue((prev) => prev.slice(1))
+      setIsFetching(false)
+    }
+  }, [fetchQueue, isFetching, loadedProfiles, getCachedOrFetch, selectedProfile, isPlaying, volume])
+
+  // Queue a profile for fetching with debounce
+  const queueProfileFetch = useCallback(
+    (userId: string) => {
+      if (loadedProfiles.has(userId)) return
+
+      // Clear existing timer
+      if (debounceTimerRef.current) {
+        clearTimeout(debounceTimerRef.current)
+      }
+
+      // Set new timer
+      debounceTimerRef.current = setTimeout(() => {
+        setFetchQueue((prev) => {
+          // Don't add if already in queue
+          if (prev.includes(userId)) return prev
+          return [...prev, userId]
+        })
+      }, FETCH_DEBOUNCE)
+    },
+    [loadedProfiles],
+  )
+
+  // Process the fetch queue whenever it changes
+  useEffect(() => {
+    processFetchQueue()
+  }, [fetchQueue, processFetchQueue])
+
+  // Initial fetch of selected profile and visible profiles
+  useEffect(() => {
+    if (selectedProfile) {
+      // Queue the selected profile first
+      queueProfileFetch(selectedProfile.id)
+
+      // Then queue a few profiles before and after for smoother experience
+      const selectedIndex = profiles.findIndex((p) => p.id === selectedProfile.id)
+      if (selectedIndex !== -1) {
+        // Queue 2 profiles before and 2 after
+        for (let i = Math.max(0, selectedIndex - 2); i <= Math.min(profiles.length - 1, selectedIndex + 2); i++) {
+          if (i !== selectedIndex) {
+            queueProfileFetch(profiles[i].id)
+          }
         }
       }
-    } catch (error: any) {
-      console.error("Error fetching user files:", error)
-      handleApiError(error)
-    } finally {
-      setRefreshing(false)
-      setLoadingProgress(100)
     }
-  }, [profiles, selectedProfile, volume, fetchProfileData, processProfileData, userFiles, profileSongs])
-
-  // Initial fetch of all user files - only after component is mounted
-  useEffect(() => {
-    if (isLoaded) {
-      fetchAllUserFiles().catch((error) => {
-        console.error("Failed to fetch user files:", error)
-        handleApiError(error)
-      })
-    }
-  }, [fetchAllUserFiles, isLoaded])
+  }, [selectedProfile, profiles, queueProfileFetch])
 
   // Clock update
   useEffect(() => {
@@ -498,8 +517,13 @@ export default function DesktopPage() {
   }
 
   // Update the handleProfileSelect function to also set the description
-  const handleProfileSelect = (profile: (typeof initialProfiles)[0]) => {
+  const handleProfileSelect = (profile: typeof selectedProfile) => {
     setSelectedProfile(profile)
+
+    // Queue this profile for immediate loading if not already loaded
+    if (!loadedProfiles.has(profile.id)) {
+      queueProfileFetch(profile.id)
+    }
 
     // Play a selection sound
     const audio = new Audio("/batcomputer-access.mp3")
@@ -553,6 +577,37 @@ export default function DesktopPage() {
     }
   }
 
+  // Optimized refresh function that only refreshes the selected profile
+  const refreshSelectedProfile = async () => {
+    if (!selectedProfile) return
+
+    setRefreshing(true)
+    setApiError(null)
+
+    try {
+      // Remove from cache to force a fresh fetch
+      cacheRef.current.delete(selectedProfile.id)
+
+      // Remove from loaded profiles
+      setLoadedProfiles((prev) => {
+        const newSet = new Set(prev)
+        newSet.delete(selectedProfile.id)
+        return newSet
+      })
+
+      // Queue for fetching
+      queueProfileFetch(selectedProfile.id)
+
+      // Wait a bit to ensure the fetch has started
+      await new Promise((resolve) => setTimeout(resolve, 500))
+    } catch (error: any) {
+      console.error("Error refreshing profile:", error)
+      setApiError(`Error refreshing: ${error.message}`)
+    } finally {
+      setRefreshing(false)
+    }
+  }
+
   // Modify the handleAdminClick function to:
   const handleAdminClick = () => {
     router.push("/admin/dashboard")
@@ -592,14 +647,13 @@ export default function DesktopPage() {
     setIsMuted(!isMuted)
   }
 
-  // If not loaded yet, show a simple loading state to avoid hydration errors
-  if (!isLoaded) {
-    return (
-      <div className="min-h-screen bg-black text-white flex items-center justify-center">
-        <div className="w-16 h-16 border-4 border-yellow-500 border-t-transparent rounded-full animate-spin"></div>
-      </div>
-    )
-  }
+  // In the return statement, find this part:
+  // <p className="text-gray-300 mb-8 text-lg">{selectedProfile?.description}</p>
+
+  // And replace it with:
+  // <p className="text-gray-300 mb-8 text-lg">
+  //   {profileDescriptions[selectedProfile?.id] || selectedProfile?.description || ""}
+  // </p>
 
   return (
     <div
@@ -619,22 +673,6 @@ export default function DesktopPage() {
           <button onClick={dismissError} className="text-white hover:text-red-300">
             &times;
           </button>
-        </div>
-      )}
-
-      {/* Loading progress indicator */}
-      {refreshing && (
-        <div className="fixed top-4 left-1/2 transform -translate-x-1/2 z-50 bg-black/80 text-white px-4 py-3 rounded-md shadow-lg">
-          <div className="flex items-center">
-            <div className="mr-3">Loading profiles...</div>
-            <div className="w-32 h-2 bg-gray-700 rounded-full overflow-hidden">
-              <div
-                className="h-full bg-yellow-500 transition-all duration-300"
-                style={{ width: `${loadingProgress}%` }}
-              ></div>
-            </div>
-            <div className="ml-2 text-xs">{loadingProgress}%</div>
-          </div>
         </div>
       )}
 
@@ -686,10 +724,10 @@ export default function DesktopPage() {
             {/* Refresh button on the right */}
             <div className="min-w-[180px] flex justify-end">
               <button
-                onClick={fetchAllUserFiles}
+                onClick={refreshSelectedProfile}
                 disabled={refreshing}
                 className="text-yellow-500 hover:text-yellow-400 flex items-center"
-                title="Refresh Profiles"
+                title="Refresh Current Profile"
               >
                 <RefreshCw className={`h-5 w-5 ${refreshing ? "animate-spin" : ""}`} />
               </button>
