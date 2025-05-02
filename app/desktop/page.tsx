@@ -22,6 +22,7 @@ import {
   Volume2,
   VolumeX,
   AlertCircle,
+  Loader2,
 } from "lucide-react"
 
 // Add this import at the top with the other imports
@@ -238,6 +239,9 @@ export default function DesktopPage() {
   const [isSettingsOpen, setIsSettingsOpen] = useState(false)
   const [settingsPosition, setSettingsPosition] = useState({ x: 100, y: 100 })
   const [volume, setVolume] = useState(0.2) // Default volume
+  const [loading, setLoading] = useState(true)
+  const [loadingProgress, setLoadingProgress] = useState(0)
+  const [loadingStatus, setLoadingStatus] = useState("Initializing...")
 
   // Set default profile images immediately on component mount
   useEffect(() => {
@@ -282,6 +286,9 @@ export default function DesktopPage() {
   const fetchAllUserFiles = async (retryCount = 0) => {
     setRefreshing(true)
     setApiError(null)
+    setLoading(true)
+    setLoadingProgress(0)
+    setLoadingStatus("Initializing profiles...")
 
     try {
       // Fetch files for each profile
@@ -295,8 +302,13 @@ export default function DesktopPage() {
         newProfileImages[profile.id] = DEFAULT_PROFILE_PIC
       })
 
-      for (const profile of profiles) {
+      // Calculate progress increment per profile
+      const progressIncrement = 100 / profiles.length
+
+      for (let i = 0; i < profiles.length; i++) {
+        const profile = profiles[i]
         try {
+          setLoadingStatus(`Loading profile: ${profile.username}`)
           console.log(`Fetching files for user: ${profile.id}`)
 
           // Always use GET requests since we're on GitHub Pages which doesn't support POST
@@ -304,12 +316,14 @@ export default function DesktopPage() {
             method: "GET",
           }).catch(async (error) => {
             console.log(`GET request failed for user ${profile.id}, trying fallback API...`)
+            setLoadingStatus(`Trying fallback API for ${profile.username}...`)
 
             // Try the fallback API on Vercel
             return await apiRequest(`/api/fallback`, {
               method: "GET",
             }).catch((error) => {
               console.log(`Fallback API also failed for user ${profile.id}, using default...`)
+              setLoadingStatus(`Using default data for ${profile.username}`)
               // Return a minimal fallback response
               return {
                 success: true,
@@ -380,6 +394,11 @@ export default function DesktopPage() {
           console.error(`Error fetching files for user ${profile.id}:`, error)
           // Continue with the next profile instead of breaking the entire loop
         }
+
+        // Update progress after each profile is processed
+        const newProgress = Math.min(100, Math.round((i + 1) * progressIncrement))
+        setLoadingProgress(newProgress)
+        setLoadingStatus(`Loading profiles: ${newProgress}% complete`)
       }
 
       // Update state with all fetched files
@@ -390,12 +409,6 @@ export default function DesktopPage() {
 
       // Auto-play song for the initially selected profile
       if (selectedProfile && newProfileSongs[selectedProfile.id]) {
-        // Replace this code:
-        // const audio = new Audio(newProfileSongs[selectedProfile.id])
-        // audio.volume = 0.2
-        // audioRef.current = audio
-
-        // With this:
         const audio = new Audio(newProfileSongs[selectedProfile.id])
         audio.volume = volume
         audioRef.current = audio
@@ -413,8 +426,15 @@ export default function DesktopPage() {
         audio.play().catch((err) => console.log("Could not autoplay:", err))
         setIsPlaying(true)
       }
+
+      setLoadingStatus("Loading complete!")
+      // Add a small delay before hiding the loading indicator to ensure users see the completion
+      setTimeout(() => {
+        setLoading(false)
+      }, 500)
     } catch (error: any) {
       console.error("Error fetching user files:", error)
+      setLoadingStatus("Error loading profiles. Retrying...")
 
       // Implement retry logic
       if (retryCount < MAX_RETRIES) {
@@ -429,6 +449,10 @@ export default function DesktopPage() {
         )
       } else {
         // If all retries fail, use default profiles
+        setLoadingStatus("Failed to load profiles. Using defaults.")
+        setTimeout(() => {
+          setLoading(false)
+        }, 1000)
         handleApiError(error)
       }
     } finally {
@@ -604,8 +628,51 @@ export default function DesktopPage() {
         </div>
       )}
 
+      {/* Loading overlay - much more noticeable */}
+      {loading && (
+        <>
+          {/* Semi-transparent overlay */}
+          <div className="fixed inset-0 bg-black/70 z-50 flex flex-col items-center justify-center">
+            {/* Batman-themed loading container */}
+            <div className="bg-gray-900 border-2 border-yellow-500 rounded-lg p-6 max-w-md w-full shadow-lg shadow-yellow-500/20">
+              {/* Spinner and status */}
+              <div className="flex items-center justify-center mb-4">
+                <Loader2 className="h-8 w-8 text-yellow-500 mr-3 animate-spin" />
+                <h2 className="text-xl font-bold text-yellow-500">BATCOMPUTER</h2>
+              </div>
+
+              <div className="text-center mb-4 text-yellow-300">{loadingStatus}</div>
+
+              {/* Progress bar */}
+              <div className="h-4 bg-gray-800 rounded-full overflow-hidden mb-2">
+                <div
+                  className="h-full bg-yellow-500 transition-all duration-300 ease-out relative"
+                  style={{ width: `${loadingProgress}%` }}
+                >
+                  {/* Animated pulse effect */}
+                  <div className="absolute inset-0 bg-yellow-400/50 animate-pulse"></div>
+                </div>
+              </div>
+
+              {/* Percentage display */}
+              <div className="text-center text-lg font-mono text-yellow-500">{loadingProgress}% COMPLETE</div>
+            </div>
+          </div>
+
+          {/* Top bar loading indicator */}
+          <div className="fixed top-0 left-0 w-full z-40">
+            <div className="h-2 bg-gray-800">
+              <div
+                className="h-full bg-yellow-500 transition-all duration-300 ease-out"
+                style={{ width: `${loadingProgress}%` }}
+              ></div>
+            </div>
+          </div>
+        </>
+      )}
+
       {/* Top profile bar - fixed at the top */}
-      <div className="bg-black/80 p-1 border-b border-gray-800 sticky top-0 z-50">
+      <div className="bg-black/80 p-1 border-b border-gray-800 sticky top-0 z-30">
         <div className="max-w-screen-xl mx-auto">
           <div className="flex items-center">
             {/* Clock on the left */}
