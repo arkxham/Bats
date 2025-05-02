@@ -14,6 +14,7 @@ export function getApiBaseUrl() {
   // If on custom domain, ALWAYS use the Vercel deployment URL for API calls
   if (isCustomDomain) {
     console.log("On bats.rip domain - using Vercel URL for API calls")
+    // Force using the Vercel deployment URL, not relative paths
     return "https://v0-custom-website-design-lyart.vercel.app"
   }
 
