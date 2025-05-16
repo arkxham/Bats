@@ -35,14 +35,14 @@ const DEFAULT_PROFILE_PIC = "/dark-knight-profile.png"
 const initialProfiles = [
   {
     id: "9bc522da-2723-4e71-a4d1-781d791ca1fd",
-    username: "arkham",
-    display_name: "arkham",
+    username: "Fasshn",
+    display_name: "Fasshn",
     avatar_url: null,
     background_image: null,
     description: "",
-    twitter_url: "https://twitter.com/arkxham_",
-    twitch_url: "https://bats.rip",
-    github_url: "https://github.com/arkxham",
+    twitter_url: "https://twitter.com/Fasshn",
+    twitch_url: "https://twitch.tv/Fasshn",
+    github_url: "https://github.com/Fasshon",
     steam_url: "https://steamcommunity.com/id/arkxham/",
   },
   {
